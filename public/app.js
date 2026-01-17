@@ -52,6 +52,7 @@ const authPassword = document.getElementById('auth-password');
 const closeModal = document.getElementById('close-modal');
 const submitAuthPrompt = document.getElementById('submit-auth-prompt');
 const loginToSubmit = document.getElementById('login-to-submit');
+const authConfirmPassword = document.getElementById('auth-confirm-password');
 
 let currentFilter = 'all';
 let isSignUpMode = false;
@@ -98,22 +99,35 @@ function toggleAuthMode() {
         authSubmit.textContent = 'Sign Up';
         authSwitchText.textContent = 'Already have an account?';
         authSwitchBtn.textContent = 'Sign In';
+        authConfirmPassword.classList.remove('hidden');
+        authConfirmPassword.required = true;
     } else {
         authTitle.textContent = 'Sign In';
         authSubmit.textContent = 'Sign In';
         authSwitchText.textContent = "Don't have an account?";
         authSwitchBtn.textContent = 'Sign Up';
+        authConfirmPassword.classList.add('hidden');
+        authConfirmPassword.required = false;
     }
     authError.classList.add('hidden');
+    authConfirmPassword.value = '';
 }
 
 async function handleAuth(e) {
     e.preventDefault();
     const email = authEmail.value.trim();
     const password = authPassword.value;
+    const confirmPassword = authConfirmPassword.value;
+
+    authError.classList.add('hidden');
+
+    if (isSignUpMode && password !== confirmPassword) {
+        authError.textContent = 'Passwords do not match.';
+        authError.classList.remove('hidden');
+        return;
+    }
 
     authSubmit.disabled = true;
-    authError.classList.add('hidden');
 
     try {
         if (isSignUpMode) {
