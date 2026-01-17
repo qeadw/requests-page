@@ -4,7 +4,10 @@ import {
     collection,
     addDoc,
     doc,
+    getDoc,
+    setDoc,
     updateDoc,
+    deleteDoc,
     query,
     orderBy,
     onSnapshot,
@@ -28,6 +31,9 @@ const firebaseConfig = {
     appId: "1:256362942849:web:18b99ffe1341e9c3d05880"
 };
 
+// Admin emails
+const ADMIN_EMAILS = ['averyopela1@gmail.com'];
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -49,28 +55,66 @@ const authSwitchBtn = document.getElementById('auth-switch-btn');
 const authError = document.getElementById('auth-error');
 const authEmail = document.getElementById('auth-email');
 const authPassword = document.getElementById('auth-password');
+const authUsername = document.getElementById('auth-username');
 const closeModal = document.getElementById('close-modal');
 const submitAuthPrompt = document.getElementById('submit-auth-prompt');
 const loginToSubmit = document.getElementById('login-to-submit');
 const authConfirmPassword = document.getElementById('auth-confirm-password');
 
+// Account modal elements
+const accountModal = document.getElementById('account-modal');
+const accountForm = document.getElementById('account-form');
+const accountUsername = document.getElementById('account-username');
+const accountSuccess = document.getElementById('account-success');
+const accountError = document.getElementById('account-error');
+const closeAccountModal = document.getElementById('close-account-modal');
+const signOutBtn = document.getElementById('sign-out-btn');
+
 let currentFilter = 'all';
 let isSignUpMode = false;
 let currentUser = null;
+let currentUserData = null;
+let usersCache = {};
+
+// Check if user is admin
+function isAdmin() {
+    return currentUser && ADMIN_EMAILS.includes(currentUser.email);
+}
+
+// Get user data from Firestore
+async function getUserData(userId) {
+    if (usersCache[userId]) return usersCache[userId];
+
+    try {
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        if (userDoc.exists()) {
+            usersCache[userId] = userDoc.data();
+            return usersCache[userId];
+        }
+    } catch (error) {
+        console.error('Error getting user data:', error);
+    }
+    return null;
+}
 
 // Auth state listener
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
     currentUser = user;
+    if (user) {
+        currentUserData = await getUserData(user.uid);
+    } else {
+        currentUserData = null;
+    }
     updateAuthUI(user);
 });
 
 function updateAuthUI(user) {
     if (user) {
+        const displayName = currentUserData?.username || user.email;
         authStatus.innerHTML = `
-            <span class="user-email">${user.email}</span>
-            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+            <button id="account-btn" class="account-btn">${escapeHtml(displayName)}</button>
         `;
-        document.getElementById('sign-out-btn').addEventListener('click', handleSignOut);
+        document.getElementById('account-btn').addEventListener('click', openAccountModal);
         requestForm.classList.remove('hidden');
         submitAuthPrompt.classList.add('hidden');
     } else {
@@ -86,10 +130,23 @@ function openAuthModal() {
     authError.classList.add('hidden');
     authEmail.value = '';
     authPassword.value = '';
+    authUsername.value = '';
+    authConfirmPassword.value = '';
 }
 
-function closeAuthModal() {
+function closeAuthModalFn() {
     authModal.classList.add('hidden');
+}
+
+function openAccountModal() {
+    accountModal.classList.remove('hidden');
+    accountSuccess.classList.add('hidden');
+    accountError.classList.add('hidden');
+    accountUsername.value = currentUserData?.username || '';
+}
+
+function closeAccountModalFn() {
+    accountModal.classList.add('hidden');
 }
 
 function toggleAuthMode() {
@@ -101,6 +158,8 @@ function toggleAuthMode() {
         authSwitchBtn.textContent = 'Sign In';
         authConfirmPassword.classList.remove('hidden');
         authConfirmPassword.required = true;
+        authUsername.classList.remove('hidden');
+        authUsername.required = true;
     } else {
         authTitle.textContent = 'Sign In';
         authSubmit.textContent = 'Sign In';
@@ -108,9 +167,12 @@ function toggleAuthMode() {
         authSwitchBtn.textContent = 'Sign Up';
         authConfirmPassword.classList.add('hidden');
         authConfirmPassword.required = false;
+        authUsername.classList.add('hidden');
+        authUsername.required = false;
     }
     authError.classList.add('hidden');
     authConfirmPassword.value = '';
+    authUsername.value = '';
 }
 
 async function handleAuth(e) {
@@ -118,30 +180,72 @@ async function handleAuth(e) {
     const email = authEmail.value.trim();
     const password = authPassword.value;
     const confirmPassword = authConfirmPassword.value;
+    const username = authUsername.value.trim();
 
     authError.classList.add('hidden');
 
-    if (isSignUpMode && password !== confirmPassword) {
-        authError.textContent = 'Passwords do not match.';
-        authError.classList.remove('hidden');
-        return;
+    if (isSignUpMode) {
+        if (password !== confirmPassword) {
+            authError.textContent = 'Passwords do not match.';
+            authError.classList.remove('hidden');
+            return;
+        }
+        if (!username) {
+            authError.textContent = 'Username is required.';
+            authError.classList.remove('hidden');
+            return;
+        }
     }
 
     authSubmit.disabled = true;
 
     try {
         if (isSignUpMode) {
-            await createUserWithEmailAndPassword(auth, email, password);
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            // Save username to Firestore
+            await setDoc(doc(db, 'users', userCredential.user.uid), {
+                username,
+                email,
+                createdAt: new Date().toISOString()
+            });
+            currentUserData = { username, email };
+            usersCache[userCredential.user.uid] = currentUserData;
         } else {
             await signInWithEmailAndPassword(auth, email, password);
         }
-        closeAuthModal();
+        closeAuthModalFn();
     } catch (error) {
         console.error('Auth error:', error.code, error.message);
         authError.textContent = getErrorMessage(error.code, error.message);
         authError.classList.remove('hidden');
     } finally {
         authSubmit.disabled = false;
+    }
+}
+
+async function handleAccountUpdate(e) {
+    e.preventDefault();
+    const username = accountUsername.value.trim();
+
+    if (!username) {
+        accountError.textContent = 'Username is required.';
+        accountError.classList.remove('hidden');
+        return;
+    }
+
+    accountError.classList.add('hidden');
+    accountSuccess.classList.add('hidden');
+
+    try {
+        await updateDoc(doc(db, 'users', currentUser.uid), { username });
+        currentUserData.username = username;
+        usersCache[currentUser.uid] = currentUserData;
+        accountSuccess.classList.remove('hidden');
+        updateAuthUI(currentUser);
+    } catch (error) {
+        console.error('Error updating username:', error);
+        accountError.textContent = 'Failed to update username.';
+        accountError.classList.remove('hidden');
     }
 }
 
@@ -169,6 +273,7 @@ function getErrorMessage(code, message) {
 async function handleSignOut() {
     try {
         await signOut(auth);
+        closeAccountModalFn();
     } catch (error) {
         console.error('Error signing out:', error);
     }
@@ -177,10 +282,18 @@ async function handleSignOut() {
 // Event listeners for auth
 authForm.addEventListener('submit', handleAuth);
 authSwitchBtn.addEventListener('click', toggleAuthMode);
-closeModal.addEventListener('click', closeAuthModal);
+closeModal.addEventListener('click', closeAuthModalFn);
 loginToSubmit.addEventListener('click', openAuthModal);
 authModal.addEventListener('click', (e) => {
-    if (e.target === authModal) closeAuthModal();
+    if (e.target === authModal) closeAuthModalFn();
+});
+
+// Event listeners for account
+accountForm.addEventListener('submit', handleAccountUpdate);
+closeAccountModal.addEventListener('click', closeAccountModalFn);
+signOutBtn.addEventListener('click', handleSignOut);
+accountModal.addEventListener('click', (e) => {
+    if (e.target === accountModal) closeAccountModalFn();
 });
 
 // Submit new request
@@ -209,7 +322,7 @@ requestForm.addEventListener('submit', async (e) => {
             votes: 0,
             createdAt: new Date().toISOString(),
             userId: currentUser.uid,
-            userEmail: currentUser.email
+            username: currentUserData?.username || currentUser.email
         });
 
         titleInput.value = '';
@@ -235,6 +348,28 @@ async function vote(requestId) {
     }
 }
 
+// Update request status (admin only)
+async function updateStatus(requestId, status) {
+    if (!isAdmin()) return;
+    try {
+        const requestRef = doc(db, 'requests', requestId);
+        await updateDoc(requestRef, { status });
+    } catch (error) {
+        console.error('Error updating status:', error);
+    }
+}
+
+// Delete request (admin only)
+async function deleteRequest(requestId) {
+    if (!isAdmin()) return;
+    if (!confirm('Are you sure you want to delete this request?')) return;
+    try {
+        await deleteDoc(doc(db, 'requests', requestId));
+    } catch (error) {
+        console.error('Error deleting request:', error);
+    }
+}
+
 // Render requests
 function renderRequests(requests) {
     const filtered = currentFilter === 'all'
@@ -245,6 +380,8 @@ function renderRequests(requests) {
         requestsList.innerHTML = '<p class="empty-state">No requests found.</p>';
         return;
     }
+
+    const adminControls = isAdmin();
 
     requestsList.innerHTML = filtered.map(request => `
         <div class="request-card" data-id="${request.id}">
@@ -258,8 +395,19 @@ function renderRequests(requests) {
                 <div class="request-meta">
                     <span class="status-badge status-${request.status}">${formatStatus(request.status)}</span>
                     <span>${formatDate(request.createdAt)}</span>
-                    ${request.userEmail ? `<span class="request-author">by ${escapeHtml(request.userEmail)}</span>` : ''}
+                    ${request.username ? `<span class="request-author">by ${escapeHtml(request.username)}</span>` : ''}
                 </div>
+                ${adminControls ? `
+                <div class="admin-controls">
+                    <select onchange="window.handleStatusChange('${request.id}', this.value)">
+                        <option value="pending" ${request.status === 'pending' ? 'selected' : ''}>Pending</option>
+                        <option value="in-progress" ${request.status === 'in-progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="completed" ${request.status === 'completed' ? 'selected' : ''}>Completed</option>
+                        <option value="rejected" ${request.status === 'rejected' ? 'selected' : ''}>Rejected</option>
+                    </select>
+                    <button class="delete-btn" onclick="window.handleDelete('${request.id}')">Delete</button>
+                </div>
+                ` : ''}
             </div>
         </div>
     `).join('');
@@ -287,8 +435,10 @@ function formatDate(dateString) {
     });
 }
 
-// Expose vote function globally for onclick
+// Expose functions globally for onclick
 window.handleVote = vote;
+window.handleStatusChange = updateStatus;
+window.handleDelete = deleteRequest;
 
 // Filter buttons
 filterButtons.forEach(btn => {
@@ -296,7 +446,6 @@ filterButtons.forEach(btn => {
         filterButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilter = btn.dataset.filter;
-        loadRequests();
     });
 });
 

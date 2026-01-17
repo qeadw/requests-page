@@ -33,27 +33,38 @@ header p {
     margin-bottom: 1rem;
 }
 
-/* Auth Status */
+/* Auth Status - Top Right */
 #auth-status {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
 }
 
-.user-email {
-    color: #888;
-    font-size: 0.9rem;
-}
-
-.sign-in-btn, .sign-out-btn {
+.sign-in-btn {
     background: #252525;
     padding: 0.5rem 1rem;
     font-size: 0.9rem;
 }
 
+.account-btn {
+    background: #252525;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .sign-out-btn {
-    background: #333;
+    background: #ff4444;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.sign-out-btn:hover {
+    background: #cc3333;
 }
 
 /* Modal */
@@ -358,6 +369,68 @@ button:disabled {
     text-align: center;
     color: #666;
     padding: 3rem;
+}
+
+/* Account Form */
+#account-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#account-form label {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.account-success {
+    color: #00dd00;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.account-success.hidden {
+    display: none;
+}
+
+#account-modal hr {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 1.5rem 0;
+}
+
+/* Admin Controls */
+.admin-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    align-items: center;
+}
+
+.admin-controls select {
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    color: #e0e0e0;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.admin-controls select:focus {
+    outline: none;
+    border-color: #4a9eff;
+}
+
+.delete-btn {
+    background: #ff4444;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.delete-btn:hover {
+    background: #cc3333;
 }
 
 @media (max-width: 600px) {

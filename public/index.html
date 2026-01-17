@@ -7,11 +7,12 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="auth-status"></div>
+
     <div class="container">
         <header>
             <h1>Feature Requests</h1>
             <p>Submit your ideas and vote on others!</p>
-            <div id="auth-status"></div>
         </header>
 
         <!-- Auth Modal -->
@@ -20,6 +21,7 @@
                 <button class="modal-close" id="close-modal">&times;</button>
                 <h2 id="auth-title">Sign In</h2>
                 <form id="auth-form">
+                    <input type="text" id="auth-username" placeholder="Username" class="hidden">
                     <input type="email" id="auth-email" placeholder="Email" required>
                     <input type="password" id="auth-password" placeholder="Password" required>
                     <input type="password" id="auth-confirm-password" placeholder="Confirm Password" class="hidden">
@@ -30,6 +32,23 @@
                     <button type="button" id="auth-switch-btn">Sign Up</button>
                 </p>
                 <p id="auth-error" class="auth-error hidden"></p>
+            </div>
+        </div>
+
+        <!-- Account Modal -->
+        <div id="account-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="modal-close" id="close-account-modal">&times;</button>
+                <h2>Account Settings</h2>
+                <form id="account-form">
+                    <label for="account-username">Username</label>
+                    <input type="text" id="account-username" placeholder="Enter username" required>
+                    <button type="submit">Save</button>
+                </form>
+                <p id="account-success" class="account-success hidden">Username updated!</p>
+                <p id="account-error" class="auth-error hidden"></p>
+                <hr>
+                <button type="button" id="sign-out-btn" class="sign-out-btn">Sign Out</button>
             </div>
         </div>
 
