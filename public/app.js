@@ -12,14 +12,14 @@ import {
     increment
 } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
 
-// Firebase configuration - Replace with your own config
+// Firebase configuration
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyAOmXMwzVhnLpMsLiB8JzyT3ZVMG2w1JmE",
+    authDomain: "feature-requests-7ee3c.firebaseapp.com",
+    projectId: "feature-requests-7ee3c",
+    storageBucket: "feature-requests-7ee3c.firebasestorage.app",
+    messagingSenderId: "256362942849",
+    appId: "1:256362942849:web:18b99ffe1341e9c3d05880"
 };
 
 // Initialize Firebase
