@@ -123,14 +123,15 @@ async function handleAuth(e) {
         }
         closeAuthModal();
     } catch (error) {
-        authError.textContent = getErrorMessage(error.code);
+        console.error('Auth error:', error.code, error.message);
+        authError.textContent = getErrorMessage(error.code, error.message);
         authError.classList.remove('hidden');
     } finally {
         authSubmit.disabled = false;
     }
 }
 
-function getErrorMessage(code) {
+function getErrorMessage(code, message) {
     switch (code) {
         case 'auth/email-already-in-use':
             return 'This email is already registered.';
@@ -142,8 +143,12 @@ function getErrorMessage(code) {
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
             return 'Invalid email or password.';
+        case 'auth/operation-not-allowed':
+            return 'Email/Password sign-in is not enabled. Enable it in Firebase Console.';
+        case 'auth/configuration-not-found':
+            return 'Firebase Auth not configured. Check Firebase Console.';
         default:
-            return 'An error occurred. Please try again.';
+            return message || 'An error occurred. Please try again.';
     }
 }
 
