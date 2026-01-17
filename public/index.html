@@ -65,7 +65,16 @@
         </section>
 
         <section class="requests-section">
-            <h2>All Requests</h2>
+            <div class="requests-header">
+                <h2>All Requests</h2>
+                <div class="sort-wrapper">
+                    <label for="sort-select">Sort:</label>
+                    <select id="sort-select">
+                        <option value="votes">Most Votes</option>
+                        <option value="date">Newest</option>
+                    </select>
+                </div>
+            </div>
             <div class="filter-bar">
                 <button class="filter-btn active" data-filter="all">All</button>
                 <button class="filter-btn" data-filter="pending">Pending</button>

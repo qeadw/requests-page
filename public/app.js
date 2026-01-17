@@ -11,7 +11,8 @@ import {
     query,
     orderBy,
     onSnapshot,
-    increment
+    arrayUnion,
+    arrayRemove
 } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
 import {
     getAuth,
@@ -60,6 +61,7 @@ const closeModal = document.getElementById('close-modal');
 const submitAuthPrompt = document.getElementById('submit-auth-prompt');
 const loginToSubmit = document.getElementById('login-to-submit');
 const authConfirmPassword = document.getElementById('auth-confirm-password');
+const sortSelect = document.getElementById('sort-select');
 
 // Account modal elements
 const accountModal = document.getElementById('account-modal');
@@ -71,6 +73,7 @@ const closeAccountModal = document.getElementById('close-account-modal');
 const signOutBtn = document.getElementById('sign-out-btn');
 
 let currentFilter = 'all';
+let currentSort = 'votes';
 let isSignUpMode = false;
 let currentUser = null;
 let currentUserData = null;
@@ -107,6 +110,7 @@ onAuthStateChanged(auth, async (user) => {
         currentUserData = null;
     }
     updateAuthUI(user);
+    renderRequests(allRequests);
 });
 
 function updateAuthUI(user) {
@@ -328,6 +332,8 @@ requestForm.addEventListener('submit', async (e) => {
             description,
             status: 'pending',
             votes: 0,
+            upvoters: [],
+            downvoters: [],
             createdAt: new Date().toISOString(),
             userId: currentUser.uid,
             username: currentUserData?.username || currentUser.email
@@ -344,13 +350,66 @@ requestForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Vote on a request
-async function vote(requestId) {
+// Vote on a request (direction: 1 for upvote, -1 for downvote)
+async function vote(requestId, direction) {
+    if (!currentUser) {
+        openAuthModal();
+        return;
+    }
+
+    const request = allRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    const upvoters = request.upvoters || [];
+    const downvoters = request.downvoters || [];
+    const userId = currentUser.uid;
+
+    const hasUpvoted = upvoters.includes(userId);
+    const hasDownvoted = downvoters.includes(userId);
+
+    const requestRef = doc(db, 'requests', requestId);
+    let voteChange = 0;
+    const updates = {};
+
+    if (direction === 1) {
+        // Upvote
+        if (hasUpvoted) {
+            // Remove upvote
+            updates.upvoters = arrayRemove(userId);
+            voteChange = -1;
+        } else {
+            // Add upvote
+            updates.upvoters = arrayUnion(userId);
+            voteChange = 1;
+            if (hasDownvoted) {
+                // Remove downvote
+                updates.downvoters = arrayRemove(userId);
+                voteChange = 2;
+            }
+        }
+    } else {
+        // Downvote
+        if (hasDownvoted) {
+            // Remove downvote
+            updates.downvoters = arrayRemove(userId);
+            voteChange = 1;
+        } else {
+            // Add downvote
+            updates.downvoters = arrayUnion(userId);
+            voteChange = -1;
+            if (hasUpvoted) {
+                // Remove upvote
+                updates.upvoters = arrayRemove(userId);
+                voteChange = -2;
+            }
+        }
+    }
+
     try {
-        const requestRef = doc(db, 'requests', requestId);
-        await updateDoc(requestRef, {
-            votes: increment(1)
-        });
+        // Calculate new vote count
+        const newVotes = (request.votes || 0) + voteChange;
+        updates.votes = newVotes;
+        await updateDoc(requestRef, updates);
     } catch (error) {
         console.error('Error voting:', error);
     }
@@ -378,24 +437,46 @@ async function deleteRequest(requestId) {
     }
 }
 
+// Sort requests
+function sortRequests(requests) {
+    const sorted = [...requests];
+    if (currentSort === 'votes') {
+        sorted.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+    } else {
+        sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+    return sorted;
+}
+
 // Render requests
 function renderRequests(requests) {
     const filtered = currentFilter === 'all'
         ? requests
         : requests.filter(r => r.status === currentFilter);
 
-    if (filtered.length === 0) {
+    const sorted = sortRequests(filtered);
+
+    if (sorted.length === 0) {
         requestsList.innerHTML = '<p class="empty-state">No requests found.</p>';
         return;
     }
 
     const adminControls = isAdmin();
+    const userId = currentUser?.uid;
 
-    requestsList.innerHTML = filtered.map(request => `
+    requestsList.innerHTML = sorted.map(request => {
+        const upvoters = request.upvoters || [];
+        const downvoters = request.downvoters || [];
+        const hasUpvoted = userId && upvoters.includes(userId);
+        const hasDownvoted = userId && downvoters.includes(userId);
+        const voteCount = request.votes || 0;
+
+        return `
         <div class="request-card" data-id="${request.id}">
             <div class="vote-section">
-                <button class="vote-btn" onclick="window.handleVote('${request.id}')">^</button>
-                <span class="vote-count">${request.votes}</span>
+                <button class="vote-btn upvote ${hasUpvoted ? 'active' : ''}" onclick="window.handleVote('${request.id}', 1)">&#9650;</button>
+                <span class="vote-count ${voteCount > 0 ? 'positive' : voteCount < 0 ? 'negative' : ''}">${voteCount}</span>
+                <button class="vote-btn downvote ${hasDownvoted ? 'active' : ''}" onclick="window.handleVote('${request.id}', -1)">&#9660;</button>
             </div>
             <div class="request-content">
                 <h3 class="request-title">${escapeHtml(request.title)}</h3>
@@ -418,7 +499,7 @@ function renderRequests(requests) {
                 ` : ''}
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 // Helper functions
@@ -457,6 +538,14 @@ filterButtons.forEach(btn => {
         renderRequests(allRequests);
     });
 });
+
+// Sort select
+if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+        currentSort = e.target.value;
+        renderRequests(allRequests);
+    });
+}
 
 // Load and listen to requests
 function loadRequests() {
