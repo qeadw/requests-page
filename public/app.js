@@ -75,6 +75,7 @@ let isSignUpMode = false;
 let currentUser = null;
 let currentUserData = null;
 let usersCache = {};
+let allRequests = [];
 
 // Check if user is admin
 function isAdmin() {
@@ -453,6 +454,7 @@ filterButtons.forEach(btn => {
         filterButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilter = btn.dataset.filter;
+        renderRequests(allRequests);
     });
 });
 
@@ -461,11 +463,11 @@ function loadRequests() {
     const q = query(collection(db, 'requests'), orderBy('createdAt', 'desc'));
 
     onSnapshot(q, (snapshot) => {
-        const requests = snapshot.docs.map(doc => ({
+        allRequests = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        renderRequests(requests);
+        renderRequests(allRequests);
     }, (error) => {
         console.error('Error loading requests:', error);
         requestsList.innerHTML = '<p class="empty-state">Failed to load requests. Check Firebase configuration.</p>';
