@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Requests</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Feature Requests</h1>
+            <p>Submit your ideas and vote on others!</p>
+        </header>
+
+        <section class="submit-section">
+            <h2>Submit a Request</h2>
+            <form id="request-form">
+                <input type="text" id="title" placeholder="Request title" required>
+                <textarea id="description" placeholder="Describe your request..." required></textarea>
+                <button type="submit">Submit Request</button>
+            </form>
+        </section>
+
+        <section class="requests-section">
+            <h2>All Requests</h2>
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="pending">Pending</button>
+                <button class="filter-btn" data-filter="in-progress">In Progress</button>
+                <button class="filter-btn" data-filter="completed">Completed</button>
+            </div>
+            <div id="requests-list">
+                <p class="loading">Loading requests...</p>
+            </div>
+        </section>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

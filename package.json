@@ -1,0 +1,11 @@
+{
+  "name": "requests-page",
+  "version": "1.0.0",
+  "description": "A page where users can submit and view requests (Firebase)",
+  "scripts": {
+    "start": "npx serve public"
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
