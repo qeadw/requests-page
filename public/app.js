@@ -3,7 +3,6 @@ import {
     getFirestore,
     collection,
     addDoc,
-    getDocs,
     doc,
     updateDoc,
     query,
@@ -11,6 +10,13 @@ import {
     onSnapshot,
     increment
 } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -25,6 +31,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 // DOM Elements
 const requestForm = document.getElementById('request-form');
@@ -32,12 +39,139 @@ const titleInput = document.getElementById('title');
 const descriptionInput = document.getElementById('description');
 const requestsList = document.getElementById('requests-list');
 const filterButtons = document.querySelectorAll('.filter-btn');
+const authStatus = document.getElementById('auth-status');
+const authModal = document.getElementById('auth-modal');
+const authForm = document.getElementById('auth-form');
+const authTitle = document.getElementById('auth-title');
+const authSubmit = document.getElementById('auth-submit');
+const authSwitchText = document.getElementById('auth-switch-text');
+const authSwitchBtn = document.getElementById('auth-switch-btn');
+const authError = document.getElementById('auth-error');
+const authEmail = document.getElementById('auth-email');
+const authPassword = document.getElementById('auth-password');
+const closeModal = document.getElementById('close-modal');
+const submitAuthPrompt = document.getElementById('submit-auth-prompt');
+const loginToSubmit = document.getElementById('login-to-submit');
 
 let currentFilter = 'all';
+let isSignUpMode = false;
+let currentUser = null;
+
+// Auth state listener
+onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    updateAuthUI(user);
+});
+
+function updateAuthUI(user) {
+    if (user) {
+        authStatus.innerHTML = `
+            <span class="user-email">${user.email}</span>
+            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+        `;
+        document.getElementById('sign-out-btn').addEventListener('click', handleSignOut);
+        requestForm.classList.remove('hidden');
+        submitAuthPrompt.classList.add('hidden');
+    } else {
+        authStatus.innerHTML = `<button id="sign-in-btn" class="sign-in-btn">Sign In</button>`;
+        document.getElementById('sign-in-btn').addEventListener('click', openAuthModal);
+        requestForm.classList.add('hidden');
+        submitAuthPrompt.classList.remove('hidden');
+    }
+}
+
+function openAuthModal() {
+    authModal.classList.remove('hidden');
+    authError.classList.add('hidden');
+    authEmail.value = '';
+    authPassword.value = '';
+}
+
+function closeAuthModal() {
+    authModal.classList.add('hidden');
+}
+
+function toggleAuthMode() {
+    isSignUpMode = !isSignUpMode;
+    if (isSignUpMode) {
+        authTitle.textContent = 'Sign Up';
+        authSubmit.textContent = 'Sign Up';
+        authSwitchText.textContent = 'Already have an account?';
+        authSwitchBtn.textContent = 'Sign In';
+    } else {
+        authTitle.textContent = 'Sign In';
+        authSubmit.textContent = 'Sign In';
+        authSwitchText.textContent = "Don't have an account?";
+        authSwitchBtn.textContent = 'Sign Up';
+    }
+    authError.classList.add('hidden');
+}
+
+async function handleAuth(e) {
+    e.preventDefault();
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+
+    authSubmit.disabled = true;
+    authError.classList.add('hidden');
+
+    try {
+        if (isSignUpMode) {
+            await createUserWithEmailAndPassword(auth, email, password);
+        } else {
+            await signInWithEmailAndPassword(auth, email, password);
+        }
+        closeAuthModal();
+    } catch (error) {
+        authError.textContent = getErrorMessage(error.code);
+        authError.classList.remove('hidden');
+    } finally {
+        authSubmit.disabled = false;
+    }
+}
+
+function getErrorMessage(code) {
+    switch (code) {
+        case 'auth/email-already-in-use':
+            return 'This email is already registered.';
+        case 'auth/invalid-email':
+            return 'Invalid email address.';
+        case 'auth/weak-password':
+            return 'Password must be at least 6 characters.';
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+            return 'Invalid email or password.';
+        default:
+            return 'An error occurred. Please try again.';
+    }
+}
+
+async function handleSignOut() {
+    try {
+        await signOut(auth);
+    } catch (error) {
+        console.error('Error signing out:', error);
+    }
+}
+
+// Event listeners for auth
+authForm.addEventListener('submit', handleAuth);
+authSwitchBtn.addEventListener('click', toggleAuthMode);
+closeModal.addEventListener('click', closeAuthModal);
+loginToSubmit.addEventListener('click', openAuthModal);
+authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) closeAuthModal();
+});
 
 // Submit new request
 requestForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    if (!currentUser) {
+        openAuthModal();
+        return;
+    }
 
     const title = titleInput.value.trim();
     const description = descriptionInput.value.trim();
@@ -54,7 +188,9 @@ requestForm.addEventListener('submit', async (e) => {
             description,
             status: 'pending',
             votes: 0,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            userId: currentUser.uid,
+            userEmail: currentUser.email
         });
 
         titleInput.value = '';
@@ -103,6 +239,7 @@ function renderRequests(requests) {
                 <div class="request-meta">
                     <span class="status-badge status-${request.status}">${formatStatus(request.status)}</span>
                     <span>${formatDate(request.createdAt)}</span>
+                    ${request.userEmail ? `<span class="request-author">by ${escapeHtml(request.userEmail)}</span>` : ''}
                 </div>
             </div>
         </div>
