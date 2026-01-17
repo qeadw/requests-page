@@ -253,20 +253,31 @@ button:disabled {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
-.sort-wrapper {
+.controls-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.control-group {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-.sort-wrapper label {
+.control-group label {
     color: #888;
     font-size: 0.9rem;
 }
 
-#sort-select {
+#sort-select,
+#category-filter,
+#category {
     background: #252525;
     border: 1px solid #333;
     border-radius: 6px;
@@ -276,7 +287,9 @@ button:disabled {
     cursor: pointer;
 }
 
-#sort-select:focus {
+#sort-select:focus,
+#category-filter:focus,
+#category:focus {
     outline: none;
     border-color: #4a9eff;
 }
@@ -374,11 +387,58 @@ button:disabled {
     flex: 1;
 }
 
+.request-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
 .request-title {
     font-size: 1.1rem;
     font-weight: 600;
     color: #fff;
-    margin-bottom: 0.5rem;
+    margin: 0;
+}
+
+/* Category Badges */
+.category-badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.category-uncategorized {
+    background: #333;
+    color: #888;
+}
+
+.category-project-infinity {
+    background: #4c1d95;
+    color: #c4b5fd;
+}
+
+.category-boids {
+    background: #14532d;
+    color: #86efac;
+}
+
+.category-chopping-choppers {
+    background: #7f1d1d;
+    color: #fca5a5;
+}
+
+.category-gravity-golf {
+    background: #1e3a8a;
+    color: #93c5fd;
+}
+
+.category-new-game {
+    background: #78350f;
+    color: #fcd34d;
 }
 
 .request-description {

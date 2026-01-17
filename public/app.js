@@ -62,6 +62,18 @@ const submitAuthPrompt = document.getElementById('submit-auth-prompt');
 const loginToSubmit = document.getElementById('login-to-submit');
 const authConfirmPassword = document.getElementById('auth-confirm-password');
 const sortSelect = document.getElementById('sort-select');
+const categoryInput = document.getElementById('category');
+const categoryFilter = document.getElementById('category-filter');
+
+// Category display names
+const CATEGORIES = {
+    '': 'Uncategorized',
+    'project-infinity': 'Project Infinity',
+    'boids': 'Boids',
+    'chopping-choppers': 'Chopping Choppers',
+    'gravity-golf': 'Gravity Golf',
+    'new-game': 'New Game Idea'
+};
 
 // Account modal elements
 const accountModal = document.getElementById('account-modal');
@@ -74,6 +86,7 @@ const signOutBtn = document.getElementById('sign-out-btn');
 
 let currentFilter = 'all';
 let currentSort = 'votes';
+let currentCategory = 'all';
 let isSignUpMode = false;
 let currentUser = null;
 let currentUserData = null;
@@ -319,6 +332,7 @@ requestForm.addEventListener('submit', async (e) => {
 
     const title = titleInput.value.trim();
     const description = descriptionInput.value.trim();
+    const category = categoryInput.value;
 
     if (!title || !description) return;
 
@@ -330,6 +344,7 @@ requestForm.addEventListener('submit', async (e) => {
         await addDoc(collection(db, 'requests'), {
             title,
             description,
+            category,
             status: 'pending',
             votes: 0,
             upvoters: [],
@@ -341,6 +356,7 @@ requestForm.addEventListener('submit', async (e) => {
 
         titleInput.value = '';
         descriptionInput.value = '';
+        categoryInput.value = '';
     } catch (error) {
         console.error('Error adding request:', error);
         alert('Failed to submit request. Please try again.');
@@ -450,9 +466,15 @@ function sortRequests(requests) {
 
 // Render requests
 function renderRequests(requests) {
-    const filtered = currentFilter === 'all'
+    // Filter by status
+    let filtered = currentFilter === 'all'
         ? requests
         : requests.filter(r => r.status === currentFilter);
+
+    // Filter by category
+    if (currentCategory !== 'all') {
+        filtered = filtered.filter(r => (r.category || '') === currentCategory);
+    }
 
     const sorted = sortRequests(filtered);
 
@@ -470,6 +492,8 @@ function renderRequests(requests) {
         const hasUpvoted = userId && upvoters.includes(userId);
         const hasDownvoted = userId && downvoters.includes(userId);
         const voteCount = request.votes || 0;
+        const categoryName = CATEGORIES[request.category || ''] || 'Uncategorized';
+        const categoryClass = request.category || 'uncategorized';
 
         return `
         <div class="request-card" data-id="${request.id}">
@@ -479,7 +503,10 @@ function renderRequests(requests) {
                 <button class="vote-btn downvote ${hasDownvoted ? 'active' : ''}" onclick="window.handleVote('${request.id}', -1)">&#9660;</button>
             </div>
             <div class="request-content">
-                <h3 class="request-title">${escapeHtml(request.title)}</h3>
+                <div class="request-header">
+                    <h3 class="request-title">${escapeHtml(request.title)}</h3>
+                    <span class="category-badge category-${categoryClass}">${categoryName}</span>
+                </div>
                 <p class="request-description">${escapeHtml(request.description)}</p>
                 <div class="request-meta">
                     <span class="status-badge status-${request.status}">${formatStatus(request.status)}</span>
@@ -543,6 +570,14 @@ filterButtons.forEach(btn => {
 if (sortSelect) {
     sortSelect.addEventListener('change', (e) => {
         currentSort = e.target.value;
+        renderRequests(allRequests);
+    });
+}
+
+// Category filter
+if (categoryFilter) {
+    categoryFilter.addEventListener('change', (e) => {
+        currentCategory = e.target.value;
         renderRequests(allRequests);
     });
 }

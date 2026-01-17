@@ -60,6 +60,14 @@
             <form id="request-form" class="hidden">
                 <input type="text" id="title" placeholder="Request title" required>
                 <textarea id="description" placeholder="Describe your request..." required></textarea>
+                <select id="category">
+                    <option value="">No Category</option>
+                    <option value="project-infinity">Project Infinity</option>
+                    <option value="boids">Boids</option>
+                    <option value="chopping-choppers">Chopping Choppers</option>
+                    <option value="gravity-golf">Gravity Golf</option>
+                    <option value="new-game">New Game Idea</option>
+                </select>
                 <button type="submit">Submit Request</button>
             </form>
         </section>
@@ -67,12 +75,26 @@
         <section class="requests-section">
             <div class="requests-header">
                 <h2>All Requests</h2>
-                <div class="sort-wrapper">
-                    <label for="sort-select">Sort:</label>
-                    <select id="sort-select">
-                        <option value="votes">Most Votes</option>
-                        <option value="date">Newest</option>
-                    </select>
+                <div class="controls-wrapper">
+                    <div class="control-group">
+                        <label for="category-filter">Category:</label>
+                        <select id="category-filter">
+                            <option value="all">All Categories</option>
+                            <option value="">Uncategorized</option>
+                            <option value="project-infinity">Project Infinity</option>
+                            <option value="boids">Boids</option>
+                            <option value="chopping-choppers">Chopping Choppers</option>
+                            <option value="gravity-golf">Gravity Golf</option>
+                            <option value="new-game">New Game Idea</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="sort-select">Sort:</label>
+                        <select id="sort-select">
+                            <option value="votes">Most Votes</option>
+                            <option value="date">Newest</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="filter-bar">
