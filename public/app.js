@@ -237,7 +237,14 @@ async function handleAccountUpdate(e) {
     accountSuccess.classList.add('hidden');
 
     try {
-        await updateDoc(doc(db, 'users', currentUser.uid), { username });
+        // Use setDoc with merge to create doc if it doesn't exist
+        await setDoc(doc(db, 'users', currentUser.uid), {
+            username,
+            email: currentUser.email,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        if (!currentUserData) currentUserData = {};
         currentUserData.username = username;
         usersCache[currentUser.uid] = currentUserData;
         accountSuccess.classList.remove('hidden');
