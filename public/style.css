@@ -277,7 +277,9 @@ button:disabled {
 
 #sort-select,
 #category-filter,
-#category {
+#type-filter,
+#category,
+#request-type {
     background: #252525;
     border: 1px solid #333;
     border-radius: 6px;
@@ -289,9 +291,22 @@ button:disabled {
 
 #sort-select:focus,
 #category-filter:focus,
-#category:focus {
+#type-filter:focus,
+#category:focus,
+#request-type:focus {
     outline: none;
     border-color: #4a9eff;
+}
+
+/* Form row for type and category */
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.form-row select {
+    flex: 1;
+    padding: 0.75rem 1rem;
 }
 
 .filter-bar {
@@ -389,8 +404,8 @@ button:disabled {
 
 .request-header {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
 }
@@ -400,6 +415,7 @@ button:disabled {
     font-weight: 600;
     color: #fff;
     margin: 0;
+    margin-right: auto;
 }
 
 /* Category Badges */
@@ -439,6 +455,35 @@ button:disabled {
 .category-new-game {
     background: #78350f;
     color: #fcd34d;
+}
+
+.category-watermelon-chicken-farm {
+    background: #166534;
+    color: #bbf7d0;
+}
+
+.category-feature-requests {
+    background: #1e40af;
+    color: #bfdbfe;
+}
+
+/* Type Badges */
+.type-badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.type-feature {
+    background: #1e3a5f;
+    color: #7dd3fc;
+}
+
+.type-bug {
+    background: #7f1d1d;
+    color: #fca5a5;
 }
 
 .request-description {

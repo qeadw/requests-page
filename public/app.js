@@ -64,15 +64,25 @@ const authConfirmPassword = document.getElementById('auth-confirm-password');
 const sortSelect = document.getElementById('sort-select');
 const categoryInput = document.getElementById('category');
 const categoryFilter = document.getElementById('category-filter');
+const requestTypeInput = document.getElementById('request-type');
+const typeFilter = document.getElementById('type-filter');
 
 // Category display names
 const CATEGORIES = {
     '': 'Uncategorized',
+    'feature-requests': 'Feature Requests App',
     'project-infinity': 'Project Infinity',
     'boids': 'Boids',
     'chopping-choppers': 'Chopping Choppers',
     'gravity-golf': 'Gravity Golf',
+    'watermelon-chicken-farm': 'Watermelon Chicken Farm',
     'new-game': 'New Game Idea'
+};
+
+// Request type display names
+const REQUEST_TYPES = {
+    'feature': 'Feature',
+    'bug': 'Bug'
 };
 
 // Account modal elements
@@ -87,6 +97,7 @@ const signOutBtn = document.getElementById('sign-out-btn');
 let currentFilter = 'all';
 let currentSort = 'votes';
 let currentCategory = 'all';
+let currentType = 'all';
 let isSignUpMode = false;
 let currentUser = null;
 let currentUserData = null;
@@ -178,6 +189,7 @@ function toggleAuthMode() {
         authConfirmPassword.required = true;
         authUsername.classList.remove('hidden');
         authUsername.required = true;
+        authEmail.placeholder = 'Email (optional)';
     } else {
         authTitle.textContent = 'Sign In';
         authSubmit.textContent = 'Sign In';
@@ -187,15 +199,40 @@ function toggleAuthMode() {
         authConfirmPassword.required = false;
         authUsername.classList.add('hidden');
         authUsername.required = false;
+        authEmail.placeholder = 'Email or Username';
     }
     authError.classList.add('hidden');
     authConfirmPassword.value = '';
     authUsername.value = '';
 }
 
+// Generate a placeholder email for users who don't provide one
+function generatePlaceholderEmail(username) {
+    const hash = Math.random().toString(36).substring(2, 10);
+    return `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}_${hash}@featurerequests.local`;
+}
+
+// Look up email by username for sign-in
+async function findEmailByUsername(username) {
+    try {
+        const { getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
+        const q = query(collection(db, 'users'));
+        const snapshot = await getDocs(q);
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            if (data.username && data.username.toLowerCase() === username.toLowerCase()) {
+                return data.email;
+            }
+        }
+    } catch (error) {
+        console.error('Error finding user by username:', error);
+    }
+    return null;
+}
+
 async function handleAuth(e) {
     e.preventDefault();
-    const email = authEmail.value.trim();
+    let email = authEmail.value.trim();
     const password = authPassword.value;
     const confirmPassword = authConfirmPassword.value;
     const username = authUsername.value.trim();
@@ -212,6 +249,30 @@ async function handleAuth(e) {
             authError.textContent = 'Username is required.';
             authError.classList.remove('hidden');
             return;
+        }
+        // Generate placeholder email if not provided
+        if (!email) {
+            email = generatePlaceholderEmail(username);
+        }
+    } else {
+        // Sign in mode - allow username instead of email
+        if (!email) {
+            authError.textContent = 'Email is required to sign in.';
+            authError.classList.remove('hidden');
+            return;
+        }
+        // Check if user entered username instead of email
+        if (!email.includes('@')) {
+            authSubmit.disabled = true;
+            const foundEmail = await findEmailByUsername(email);
+            if (foundEmail) {
+                email = foundEmail;
+            } else {
+                authError.textContent = 'Username not found. Please use your email.';
+                authError.classList.remove('hidden');
+                authSubmit.disabled = false;
+                return;
+            }
         }
     }
 
@@ -333,6 +394,7 @@ requestForm.addEventListener('submit', async (e) => {
     const title = titleInput.value.trim();
     const description = descriptionInput.value.trim();
     const category = categoryInput.value;
+    const requestType = requestTypeInput ? requestTypeInput.value : 'feature';
 
     if (!title || !description) return;
 
@@ -345,6 +407,7 @@ requestForm.addEventListener('submit', async (e) => {
             title,
             description,
             category,
+            type: requestType,
             status: 'pending',
             votes: 0,
             upvoters: [],
@@ -357,6 +420,7 @@ requestForm.addEventListener('submit', async (e) => {
         titleInput.value = '';
         descriptionInput.value = '';
         categoryInput.value = '';
+        if (requestTypeInput) requestTypeInput.value = 'feature';
     } catch (error) {
         console.error('Error adding request:', error);
         alert('Failed to submit request. Please try again.');
@@ -476,6 +540,11 @@ function renderRequests(requests) {
         filtered = filtered.filter(r => (r.category || '') === currentCategory);
     }
 
+    // Filter by type
+    if (currentType !== 'all') {
+        filtered = filtered.filter(r => (r.type || 'feature') === currentType);
+    }
+
     const sorted = sortRequests(filtered);
 
     if (sorted.length === 0) {
@@ -494,6 +563,8 @@ function renderRequests(requests) {
         const voteCount = request.votes || 0;
         const categoryName = CATEGORIES[request.category || ''] || 'Uncategorized';
         const categoryClass = request.category || 'uncategorized';
+        const requestType = request.type || 'feature';
+        const typeName = REQUEST_TYPES[requestType] || 'Feature';
 
         return `
         <div class="request-card" data-id="${request.id}">
@@ -505,6 +576,7 @@ function renderRequests(requests) {
             <div class="request-content">
                 <div class="request-header">
                     <h3 class="request-title">${escapeHtml(request.title)}</h3>
+                    <span class="type-badge type-${requestType}">${typeName}</span>
                     <span class="category-badge category-${categoryClass}">${categoryName}</span>
                 </div>
                 <p class="request-description">${escapeHtml(request.description)}</p>
@@ -578,6 +650,14 @@ if (sortSelect) {
 if (categoryFilter) {
     categoryFilter.addEventListener('change', (e) => {
         currentCategory = e.target.value;
+        renderRequests(allRequests);
+    });
+}
+
+// Type filter
+if (typeFilter) {
+    typeFilter.addEventListener('change', (e) => {
+        currentType = e.target.value;
         renderRequests(allRequests);
     });
 }

@@ -22,7 +22,7 @@
                 <h2 id="auth-title">Sign In</h2>
                 <form id="auth-form">
                     <input type="text" id="auth-username" placeholder="Username" class="hidden">
-                    <input type="email" id="auth-email" placeholder="Email" required>
+                    <input type="text" id="auth-email" placeholder="Email or Username">
                     <input type="password" id="auth-password" placeholder="Password" required>
                     <input type="password" id="auth-confirm-password" placeholder="Confirm Password" class="hidden">
                     <button type="submit" id="auth-submit">Sign In</button>
@@ -60,14 +60,22 @@
             <form id="request-form" class="hidden">
                 <input type="text" id="title" placeholder="Request title" required>
                 <textarea id="description" placeholder="Describe your request..." required></textarea>
-                <select id="category">
-                    <option value="">No Category</option>
-                    <option value="project-infinity">Project Infinity</option>
-                    <option value="boids">Boids</option>
-                    <option value="chopping-choppers">Chopping Choppers</option>
-                    <option value="gravity-golf">Gravity Golf</option>
-                    <option value="new-game">New Game Idea</option>
-                </select>
+                <div class="form-row">
+                    <select id="request-type">
+                        <option value="feature">Feature Request</option>
+                        <option value="bug">Bug Report</option>
+                    </select>
+                    <select id="category">
+                        <option value="">No Category</option>
+                        <option value="feature-requests">Feature Requests App</option>
+                        <option value="project-infinity">Project Infinity</option>
+                        <option value="boids">Boids</option>
+                        <option value="chopping-choppers">Chopping Choppers</option>
+                        <option value="gravity-golf">Gravity Golf</option>
+                        <option value="watermelon-chicken-farm">Watermelon Chicken Farm</option>
+                        <option value="new-game">New Game Idea</option>
+                    </select>
+                </div>
                 <button type="submit">Submit Request</button>
             </form>
         </section>
@@ -77,14 +85,24 @@
                 <h2>All Requests</h2>
                 <div class="controls-wrapper">
                     <div class="control-group">
+                        <label for="type-filter">Type:</label>
+                        <select id="type-filter">
+                            <option value="all">All Types</option>
+                            <option value="feature">Features</option>
+                            <option value="bug">Bugs</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
                         <label for="category-filter">Category:</label>
                         <select id="category-filter">
                             <option value="all">All Categories</option>
                             <option value="">Uncategorized</option>
+                            <option value="feature-requests">Feature Requests App</option>
                             <option value="project-infinity">Project Infinity</option>
                             <option value="boids">Boids</option>
                             <option value="chopping-choppers">Chopping Choppers</option>
                             <option value="gravity-golf">Gravity Golf</option>
+                            <option value="watermelon-chicken-farm">Watermelon Chicken Farm</option>
                             <option value="new-game">New Game Idea</option>
                         </select>
                     </div>
