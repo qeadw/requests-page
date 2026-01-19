@@ -418,6 +418,25 @@ button:disabled {
     margin-right: auto;
 }
 
+.edit-request-btn {
+    background: #252525;
+    color: #888;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    border-radius: 4px;
+}
+
+.edit-request-btn:hover {
+    background: #333;
+    color: #4a9eff;
+}
+
+.edited-indicator {
+    color: #666;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
 /* Category Badges */
 .category-badge {
     padding: 0.2rem 0.5rem;
@@ -652,6 +671,19 @@ button:disabled {
     font-size: 0.75rem;
 }
 
+.comment-edit-btn {
+    background: none;
+    color: #666;
+    padding: 0 0.3rem;
+    font-size: 0.75rem;
+    margin-left: auto;
+}
+
+.comment-edit-btn:hover {
+    background: none;
+    color: #4a9eff;
+}
+
 .comment-delete-btn {
     background: none;
     color: #666;
@@ -659,7 +691,6 @@ button:disabled {
     width: 20px;
     height: 20px;
     font-size: 1rem;
-    margin-left: auto;
 }
 
 .comment-delete-btn:hover {

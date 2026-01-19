@@ -575,11 +575,15 @@ function renderRequests(requests) {
             </div>
             <div class="request-content">
                 <div class="request-header">
-                    <h3 class="request-title">${escapeHtml(request.title)}</h3>
+                    <h3 class="request-title" id="request-title-${request.id}">${escapeHtml(request.title)}</h3>
                     <span class="type-badge type-${requestType}">${typeName}</span>
                     <span class="category-badge category-${categoryClass}">${categoryName}</span>
+                    ${adminControls || (currentUser && request.userId === currentUser.uid) ? `
+                        <button class="edit-request-btn" onclick="window.editRequest('${request.id}')">Edit</button>
+                    ` : ''}
                 </div>
-                <p class="request-description">${escapeHtml(request.description)}</p>
+                <p class="request-description" id="request-desc-${request.id}">${escapeHtml(request.description)}</p>
+                ${request.editedAt ? '<span class="edited-indicator">(edited)</span>' : ''}
                 <div class="request-meta">
                     <span class="status-badge status-${request.status}">${formatStatus(request.status)}</span>
                     <span>${formatDate(request.createdAt)}</span>
@@ -606,12 +610,13 @@ function renderRequests(requests) {
                                 <div class="comment">
                                     <div class="comment-header">
                                         <span class="comment-author">${escapeHtml(comment.username || 'Anonymous')}</span>
-                                        <span class="comment-date">${formatDate(comment.createdAt)}</span>
+                                        <span class="comment-date">${formatDate(comment.createdAt)}${comment.editedAt ? ' (edited)' : ''}</span>
                                         ${adminControls || (currentUser && comment.userId === currentUser.uid) ? `
+                                            <button class="comment-edit-btn" onclick="window.editComment('${request.id}', '${comment.id}')">Edit</button>
                                             <button class="comment-delete-btn" onclick="window.deleteComment('${request.id}', '${comment.id}')">&times;</button>
                                         ` : ''}
                                     </div>
-                                    <p class="comment-text">${escapeHtml(comment.text)}</p>
+                                    <p class="comment-text" id="comment-text-${comment.id}">${escapeHtml(comment.text)}</p>
                                 </div>
                             `).join('') || '<p class="no-comments">No comments yet.</p>'}
                         </div>
@@ -725,6 +730,73 @@ async function deleteComment(requestId, commentId) {
     }
 }
 
+// Edit a comment
+async function editComment(requestId, commentId) {
+    if (!currentUser) return;
+
+    const request = allRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    const comment = (request.comments || []).find(c => c.id === commentId);
+    if (!comment) return;
+
+    // Check permission: admin or comment owner
+    if (!isAdmin() && comment.userId !== currentUser.uid) return;
+
+    const newText = prompt('Edit comment:', comment.text);
+    if (newText === null || newText.trim() === '' || newText === comment.text) return;
+
+    try {
+        const comments = (request.comments || []).map(c => {
+            if (c.id === commentId) {
+                return { ...c, text: newText.trim(), editedAt: new Date().toISOString() };
+            }
+            return c;
+        });
+
+        const requestRef = doc(db, 'requests', requestId);
+        await updateDoc(requestRef, { comments });
+    } catch (error) {
+        console.error('Error editing comment:', error);
+    }
+}
+
+// Edit a request
+async function editRequest(requestId) {
+    if (!currentUser) return;
+
+    const request = allRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    // Check permission: admin or request owner
+    if (!isAdmin() && request.userId !== currentUser.uid) return;
+
+    const newTitle = prompt('Edit title:', request.title);
+    if (newTitle === null) return;
+
+    const newDescription = prompt('Edit description:', request.description);
+    if (newDescription === null) return;
+
+    if (newTitle.trim() === '' || newDescription.trim() === '') {
+        alert('Title and description cannot be empty.');
+        return;
+    }
+
+    if (newTitle === request.title && newDescription === request.description) return;
+
+    try {
+        const requestRef = doc(db, 'requests', requestId);
+        await updateDoc(requestRef, {
+            title: newTitle.trim(),
+            description: newDescription.trim(),
+            editedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error editing request:', error);
+        alert('Failed to edit request. Please try again.');
+    }
+}
+
 // Expose functions globally for onclick
 window.handleVote = vote;
 window.handleStatusChange = updateStatus;
@@ -732,6 +804,8 @@ window.handleDelete = deleteRequest;
 window.toggleComments = toggleComments;
 window.addComment = addComment;
 window.deleteComment = deleteComment;
+window.editComment = editComment;
+window.editRequest = editRequest;
 
 // Filter buttons
 filterButtons.forEach(btn => {
