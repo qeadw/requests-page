@@ -596,6 +596,33 @@ function renderRequests(requests) {
                     <button class="delete-btn" onclick="window.handleDelete('${request.id}')">Delete</button>
                 </div>
                 ` : ''}
+                <div class="comments-section">
+                    <button class="toggle-comments-btn" onclick="window.toggleComments('${request.id}')">
+                        Comments (${(request.comments || []).length})
+                    </button>
+                    <div class="comments-container hidden" id="comments-${request.id}">
+                        <div class="comments-list">
+                            ${(request.comments || []).map(comment => `
+                                <div class="comment">
+                                    <div class="comment-header">
+                                        <span class="comment-author">${escapeHtml(comment.username || 'Anonymous')}</span>
+                                        <span class="comment-date">${formatDate(comment.createdAt)}</span>
+                                        ${adminControls || (currentUser && comment.userId === currentUser.uid) ? `
+                                            <button class="comment-delete-btn" onclick="window.deleteComment('${request.id}', '${comment.id}')">&times;</button>
+                                        ` : ''}
+                                    </div>
+                                    <p class="comment-text">${escapeHtml(comment.text)}</p>
+                                </div>
+                            `).join('') || '<p class="no-comments">No comments yet.</p>'}
+                        </div>
+                        ${currentUser ? `
+                            <form class="comment-form" onsubmit="window.addComment(event, '${request.id}')">
+                                <input type="text" placeholder="Add a comment..." class="comment-input" required>
+                                <button type="submit">Post</button>
+                            </form>
+                        ` : '<p class="comment-login-prompt">Sign in to comment</p>'}
+                    </div>
+                </div>
             </div>
         </div>
     `}).join('');
@@ -623,10 +650,88 @@ function formatDate(dateString) {
     });
 }
 
+// Toggle comments visibility
+function toggleComments(requestId) {
+    const container = document.getElementById(`comments-${requestId}`);
+    if (container) {
+        container.classList.toggle('hidden');
+    }
+}
+
+// Add a comment to a request
+async function addComment(event, requestId) {
+    event.preventDefault();
+    if (!currentUser) {
+        openAuthModal();
+        return;
+    }
+
+    const form = event.target;
+    const input = form.querySelector('.comment-input');
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    const submitBtn = form.querySelector('button');
+    submitBtn.disabled = true;
+
+    try {
+        const request = allRequests.find(r => r.id === requestId);
+        if (!request) return;
+
+        const newComment = {
+            id: Date.now().toString(),
+            text,
+            userId: currentUser.uid,
+            username: currentUserData?.username || currentUser.email,
+            createdAt: new Date().toISOString()
+        };
+
+        const comments = [...(request.comments || []), newComment];
+
+        const requestRef = doc(db, 'requests', requestId);
+        await updateDoc(requestRef, { comments });
+
+        input.value = '';
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        alert('Failed to add comment. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+    }
+}
+
+// Delete a comment
+async function deleteComment(requestId, commentId) {
+    if (!currentUser) return;
+
+    const request = allRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    const comment = (request.comments || []).find(c => c.id === commentId);
+    if (!comment) return;
+
+    // Check permission: admin or comment owner
+    if (!isAdmin() && comment.userId !== currentUser.uid) return;
+
+    if (!confirm('Delete this comment?')) return;
+
+    try {
+        const comments = (request.comments || []).filter(c => c.id !== commentId);
+        const requestRef = doc(db, 'requests', requestId);
+        await updateDoc(requestRef, { comments });
+    } catch (error) {
+        console.error('Error deleting comment:', error);
+    }
+}
+
 // Expose functions globally for onclick
 window.handleVote = vote;
 window.handleStatusChange = updateStatus;
 window.handleDelete = deleteRequest;
+window.toggleComments = toggleComments;
+window.addComment = addComment;
+window.deleteComment = deleteComment;
 
 // Filter buttons
 filterButtons.forEach(btn => {
