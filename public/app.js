@@ -899,155 +899,231 @@ function loadRequests() {
     });
 }
 
-// Admin Chat State
-let adminChatOpen = false;
-let adminChatMessages = [];
-let adminChatContainer = null;
+// Admin Forum State
+let adminForumPosts = [];
 
-// Create admin chat UI
-function createAdminChatUI() {
+// Create admin forum section
+function createAdminForumUI() {
     if (!isAdmin()) return;
 
     // Remove existing if any
-    const existing = document.querySelector('.admin-chat-btn');
+    const existing = document.getElementById('admin-forum-section');
     if (existing) existing.remove();
-    const existingModal = document.querySelector('.admin-chat-modal');
-    if (existingModal) existingModal.remove();
 
-    // Create chat button
-    const chatBtn = document.createElement('button');
-    chatBtn.className = 'admin-chat-btn';
-    chatBtn.innerHTML = '💬';
-    chatBtn.title = 'Admin Chat';
-    chatBtn.onclick = toggleAdminChat;
-    document.body.appendChild(chatBtn);
-
-    // Create chat modal
-    adminChatContainer = document.createElement('div');
-    adminChatContainer.className = 'admin-chat-modal';
-    adminChatContainer.style.display = 'none';
-    adminChatContainer.innerHTML = `
-        <div class="admin-chat-header">
-            <h3>Admin Chat</h3>
-            <button class="admin-chat-close" onclick="window.toggleAdminChat()">&times;</button>
+    // Create forum section
+    const forumSection = document.createElement('section');
+    forumSection.id = 'admin-forum-section';
+    forumSection.className = 'admin-forum-section';
+    forumSection.innerHTML = `
+        <div class="admin-forum-header">
+            <h2>Admin Forum</h2>
+            <span class="admin-badge">Admin Only</span>
         </div>
-        <div class="admin-chat-messages" id="admin-chat-messages">
-            <p class="admin-chat-empty">Loading messages...</p>
-        </div>
-        <form class="admin-chat-form" onsubmit="window.sendAdminMessage(event)">
-            <input type="text" id="admin-chat-input" placeholder="Type a message..." autocomplete="off">
-            <button type="submit">Send</button>
+        <form class="admin-forum-form" id="admin-forum-form">
+            <input type="text" id="admin-forum-title" placeholder="Post title..." required>
+            <textarea id="admin-forum-content" placeholder="Write your post..." required></textarea>
+            <button type="submit">Post</button>
         </form>
+        <div class="admin-forum-posts" id="admin-forum-posts">
+            <p class="admin-forum-empty">Loading posts...</p>
+        </div>
     `;
-    document.body.appendChild(adminChatContainer);
 
-    // Load chat messages
-    loadAdminChat();
-}
-
-function toggleAdminChat() {
-    if (!adminChatContainer) return;
-    adminChatOpen = !adminChatOpen;
-    adminChatContainer.style.display = adminChatOpen ? 'flex' : 'none';
-    if (adminChatOpen) {
-        const input = document.getElementById('admin-chat-input');
-        if (input) input.focus();
-        // Scroll to bottom
-        const messagesDiv = document.getElementById('admin-chat-messages');
-        if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    // Insert before the requests section
+    const container = document.querySelector('.container');
+    const requestsSection = document.querySelector('.requests-section');
+    if (container && requestsSection) {
+        container.insertBefore(forumSection, requestsSection);
     }
+
+    // Add form listener
+    document.getElementById('admin-forum-form').addEventListener('submit', handleAdminForumPost);
+
+    // Load forum posts
+    loadAdminForum();
 }
 
-function renderAdminChat() {
-    const messagesDiv = document.getElementById('admin-chat-messages');
-    if (!messagesDiv) return;
+function renderAdminForum() {
+    const postsDiv = document.getElementById('admin-forum-posts');
+    if (!postsDiv) return;
 
-    if (adminChatMessages.length === 0) {
-        messagesDiv.innerHTML = '<p class="admin-chat-empty">No messages yet. Start the conversation!</p>';
+    if (adminForumPosts.length === 0) {
+        postsDiv.innerHTML = '<p class="admin-forum-empty">No posts yet. Start the discussion!</p>';
         return;
     }
 
-    messagesDiv.innerHTML = adminChatMessages.map(msg => `
-        <div class="admin-chat-message">
-            <div class="admin-chat-message-header">
-                <span class="admin-chat-message-author">${escapeHtml(msg.username || 'Admin')}</span>
-                <span class="admin-chat-message-time">${formatChatTime(msg.createdAt)}</span>
+    postsDiv.innerHTML = adminForumPosts.map(post => `
+        <div class="admin-forum-post" data-id="${post.id}">
+            <div class="admin-forum-post-header">
+                <h3 class="admin-forum-post-title">${escapeHtml(post.title)}</h3>
+                <div class="admin-forum-post-meta">
+                    <span class="admin-forum-post-author">${escapeHtml(post.username || 'Admin')}</span>
+                    <span class="admin-forum-post-date">${formatDate(post.createdAt)}</span>
+                    <button class="admin-forum-delete-btn" onclick="window.deleteAdminPost('${post.id}')">&times;</button>
+                </div>
             </div>
-            <div class="admin-chat-message-text">${escapeHtml(msg.text)}</div>
+            <p class="admin-forum-post-content">${escapeHtml(post.content)}</p>
+            <div class="admin-forum-replies">
+                <button class="admin-forum-toggle-replies" onclick="window.toggleAdminReplies('${post.id}')">
+                    Replies (${(post.replies || []).length})
+                </button>
+                <div class="admin-forum-replies-list hidden" id="replies-${post.id}">
+                    ${(post.replies || []).map(reply => `
+                        <div class="admin-forum-reply">
+                            <div class="admin-forum-reply-header">
+                                <span class="admin-forum-reply-author">${escapeHtml(reply.username || 'Admin')}</span>
+                                <span class="admin-forum-reply-date">${formatDate(reply.createdAt)}</span>
+                                <button class="admin-forum-reply-delete" onclick="window.deleteAdminReply('${post.id}', '${reply.id}')">&times;</button>
+                            </div>
+                            <p class="admin-forum-reply-text">${escapeHtml(reply.text)}</p>
+                        </div>
+                    `).join('') || '<p class="admin-forum-no-replies">No replies yet.</p>'}
+                    <form class="admin-forum-reply-form" onsubmit="window.addAdminReply(event, '${post.id}')">
+                        <input type="text" placeholder="Write a reply..." required>
+                        <button type="submit">Reply</button>
+                    </form>
+                </div>
+            </div>
         </div>
     `).join('');
-
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-function formatChatTime(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-}
-
-async function sendAdminMessage(event) {
+async function handleAdminForumPost(event) {
     event.preventDefault();
     if (!isAdmin()) return;
 
-    const input = document.getElementById('admin-chat-input');
-    const text = input.value.trim();
-    if (!text) return;
+    const titleInput = document.getElementById('admin-forum-title');
+    const contentInput = document.getElementById('admin-forum-content');
+    const title = titleInput.value.trim();
+    const content = contentInput.value.trim();
+
+    if (!title || !content) return;
+
+    const submitBtn = event.target.querySelector('button');
+    submitBtn.disabled = true;
 
     try {
-        await addDoc(collection(db, 'admin_chat'), {
+        await addDoc(collection(db, 'admin_forum'), {
+            title,
+            content,
+            userId: currentUser.uid,
+            username: currentUserData?.username || currentUser.email,
+            replies: [],
+            createdAt: new Date().toISOString()
+        });
+        titleInput.value = '';
+        contentInput.value = '';
+    } catch (error) {
+        console.error('Error posting:', error);
+        alert('Failed to post. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+    }
+}
+
+function toggleAdminReplies(postId) {
+    const repliesDiv = document.getElementById(`replies-${postId}`);
+    if (repliesDiv) {
+        repliesDiv.classList.toggle('hidden');
+    }
+}
+
+async function addAdminReply(event, postId) {
+    event.preventDefault();
+    if (!isAdmin()) return;
+
+    const form = event.target;
+    const input = form.querySelector('input');
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    const submitBtn = form.querySelector('button');
+    submitBtn.disabled = true;
+
+    try {
+        const post = adminForumPosts.find(p => p.id === postId);
+        if (!post) return;
+
+        const newReply = {
+            id: Date.now().toString(),
             text,
             userId: currentUser.uid,
             username: currentUserData?.username || currentUser.email,
             createdAt: new Date().toISOString()
-        });
+        };
+
+        const replies = [...(post.replies || []), newReply];
+        const postRef = doc(db, 'admin_forum', postId);
+        await updateDoc(postRef, { replies });
+
         input.value = '';
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('Error adding reply:', error);
+    } finally {
+        submitBtn.disabled = false;
     }
 }
 
-function loadAdminChat() {
+async function deleteAdminPost(postId) {
+    if (!isAdmin()) return;
+    if (!confirm('Delete this post?')) return;
+
+    try {
+        await deleteDoc(doc(db, 'admin_forum', postId));
+    } catch (error) {
+        console.error('Error deleting post:', error);
+    }
+}
+
+async function deleteAdminReply(postId, replyId) {
+    if (!isAdmin()) return;
+    if (!confirm('Delete this reply?')) return;
+
+    try {
+        const post = adminForumPosts.find(p => p.id === postId);
+        if (!post) return;
+
+        const replies = (post.replies || []).filter(r => r.id !== replyId);
+        const postRef = doc(db, 'admin_forum', postId);
+        await updateDoc(postRef, { replies });
+    } catch (error) {
+        console.error('Error deleting reply:', error);
+    }
+}
+
+function loadAdminForum() {
     if (!isAdmin()) return;
 
-    const q = query(collection(db, 'admin_chat'), orderBy('createdAt', 'asc'));
+    const q = query(collection(db, 'admin_forum'), orderBy('createdAt', 'desc'));
 
     onSnapshot(q, (snapshot) => {
-        adminChatMessages = snapshot.docs.map(doc => ({
+        adminForumPosts = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        renderAdminChat();
+        renderAdminForum();
     }, (error) => {
-        console.error('Error loading admin chat:', error);
+        console.error('Error loading admin forum:', error);
     });
 }
 
 // Expose for onclick
-window.toggleAdminChat = toggleAdminChat;
-window.sendAdminMessage = sendAdminMessage;
+window.toggleAdminReplies = toggleAdminReplies;
+window.addAdminReply = addAdminReply;
+window.deleteAdminPost = deleteAdminPost;
+window.deleteAdminReply = deleteAdminReply;
 
-// Update auth UI to include admin chat
+// Update auth UI to include admin forum
 const originalUpdateAuthUI = updateAuthUI;
 updateAuthUI = function(user) {
     originalUpdateAuthUI(user);
     if (user && isAdmin()) {
-        setTimeout(createAdminChatUI, 100);
+        setTimeout(createAdminForumUI, 100);
     } else {
-        // Remove chat UI if not admin
-        const chatBtn = document.querySelector('.admin-chat-btn');
-        if (chatBtn) chatBtn.remove();
-        const chatModal = document.querySelector('.admin-chat-modal');
-        if (chatModal) chatModal.remove();
+        // Remove forum if not admin
+        const forum = document.getElementById('admin-forum-section');
+        if (forum) forum.remove();
     }
 };
 
