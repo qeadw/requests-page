@@ -75,6 +75,9 @@ const CATEGORIES = {
     'boids': 'Boids',
     'chopping-choppers': 'Chopping Choppers',
     'gravity-golf': 'Gravity Golf',
+    'plant-life': 'Plant Life',
+    'rank-roller': 'Rank Roller',
+    'combo-surge': 'Combo Surge',
     'watermelon-chicken-farm': 'Watermelon Chicken Farm',
     'new-game': 'New Game Idea'
 };
@@ -124,6 +127,39 @@ async function getUserData(userId) {
     }
     return null;
 }
+
+// Get username for a user ID (with caching)
+async function getUsername(userId) {
+    const userData = await getUserData(userId);
+    return userData?.username || userId.substring(0, 8) + '...';
+}
+
+// Get usernames for an array of user IDs
+async function getUsernames(userIds) {
+    const usernames = await Promise.all(userIds.map(id => getUsername(id)));
+    return usernames;
+}
+
+// Show voters modal for admins
+async function showVoters(requestId, type) {
+    if (!isAdmin()) return;
+
+    const request = allRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    const voters = type === 'up' ? (request.upvoters || []) : (request.downvoters || []);
+    if (voters.length === 0) {
+        alert(`No ${type === 'up' ? 'upvoters' : 'downvoters'} yet.`);
+        return;
+    }
+
+    const usernames = await getUsernames(voters);
+    const title = type === 'up' ? 'Upvoters' : 'Downvoters';
+    alert(`${title} (${usernames.length}):\n\n${usernames.join('\n')}`);
+}
+
+// Expose for onclick
+window.showVoters = showVoters;
 
 // Auth state listener
 onAuthStateChanged(auth, async (user) => {
@@ -570,7 +606,13 @@ function renderRequests(requests) {
         <div class="request-card" data-id="${request.id}">
             <div class="vote-section">
                 <button class="vote-btn upvote ${hasUpvoted ? 'active' : ''}" onclick="window.handleVote('${request.id}', 1)">&#9650;</button>
+                ${adminControls ? `
+                    <span class="admin-vote-info" onclick="window.showVoters('${request.id}', 'up')" title="Click to see upvoters">+${upvoters.length}</span>
+                ` : ''}
                 <span class="vote-count ${voteCount > 0 ? 'positive' : voteCount < 0 ? 'negative' : ''}">${voteCount}</span>
+                ${adminControls ? `
+                    <span class="admin-vote-info" onclick="window.showVoters('${request.id}', 'down')" title="Click to see downvoters">-${downvoters.length}</span>
+                ` : ''}
                 <button class="vote-btn downvote ${hasDownvoted ? 'active' : ''}" onclick="window.handleVote('${request.id}', -1)">&#9660;</button>
             </div>
             <div class="request-content">
@@ -856,6 +898,158 @@ function loadRequests() {
         requestsList.innerHTML = '<p class="empty-state">Failed to load requests. Check Firebase configuration.</p>';
     });
 }
+
+// Admin Chat State
+let adminChatOpen = false;
+let adminChatMessages = [];
+let adminChatContainer = null;
+
+// Create admin chat UI
+function createAdminChatUI() {
+    if (!isAdmin()) return;
+
+    // Remove existing if any
+    const existing = document.querySelector('.admin-chat-btn');
+    if (existing) existing.remove();
+    const existingModal = document.querySelector('.admin-chat-modal');
+    if (existingModal) existingModal.remove();
+
+    // Create chat button
+    const chatBtn = document.createElement('button');
+    chatBtn.className = 'admin-chat-btn';
+    chatBtn.innerHTML = '💬';
+    chatBtn.title = 'Admin Chat';
+    chatBtn.onclick = toggleAdminChat;
+    document.body.appendChild(chatBtn);
+
+    // Create chat modal
+    adminChatContainer = document.createElement('div');
+    adminChatContainer.className = 'admin-chat-modal';
+    adminChatContainer.style.display = 'none';
+    adminChatContainer.innerHTML = `
+        <div class="admin-chat-header">
+            <h3>Admin Chat</h3>
+            <button class="admin-chat-close" onclick="window.toggleAdminChat()">&times;</button>
+        </div>
+        <div class="admin-chat-messages" id="admin-chat-messages">
+            <p class="admin-chat-empty">Loading messages...</p>
+        </div>
+        <form class="admin-chat-form" onsubmit="window.sendAdminMessage(event)">
+            <input type="text" id="admin-chat-input" placeholder="Type a message..." autocomplete="off">
+            <button type="submit">Send</button>
+        </form>
+    `;
+    document.body.appendChild(adminChatContainer);
+
+    // Load chat messages
+    loadAdminChat();
+}
+
+function toggleAdminChat() {
+    if (!adminChatContainer) return;
+    adminChatOpen = !adminChatOpen;
+    adminChatContainer.style.display = adminChatOpen ? 'flex' : 'none';
+    if (adminChatOpen) {
+        const input = document.getElementById('admin-chat-input');
+        if (input) input.focus();
+        // Scroll to bottom
+        const messagesDiv = document.getElementById('admin-chat-messages');
+        if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+}
+
+function renderAdminChat() {
+    const messagesDiv = document.getElementById('admin-chat-messages');
+    if (!messagesDiv) return;
+
+    if (adminChatMessages.length === 0) {
+        messagesDiv.innerHTML = '<p class="admin-chat-empty">No messages yet. Start the conversation!</p>';
+        return;
+    }
+
+    messagesDiv.innerHTML = adminChatMessages.map(msg => `
+        <div class="admin-chat-message">
+            <div class="admin-chat-message-header">
+                <span class="admin-chat-message-author">${escapeHtml(msg.username || 'Admin')}</span>
+                <span class="admin-chat-message-time">${formatChatTime(msg.createdAt)}</span>
+            </div>
+            <div class="admin-chat-message-text">${escapeHtml(msg.text)}</div>
+        </div>
+    `).join('');
+
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function formatChatTime(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+}
+
+async function sendAdminMessage(event) {
+    event.preventDefault();
+    if (!isAdmin()) return;
+
+    const input = document.getElementById('admin-chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    try {
+        await addDoc(collection(db, 'admin_chat'), {
+            text,
+            userId: currentUser.uid,
+            username: currentUserData?.username || currentUser.email,
+            createdAt: new Date().toISOString()
+        });
+        input.value = '';
+    } catch (error) {
+        console.error('Error sending message:', error);
+    }
+}
+
+function loadAdminChat() {
+    if (!isAdmin()) return;
+
+    const q = query(collection(db, 'admin_chat'), orderBy('createdAt', 'asc'));
+
+    onSnapshot(q, (snapshot) => {
+        adminChatMessages = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        renderAdminChat();
+    }, (error) => {
+        console.error('Error loading admin chat:', error);
+    });
+}
+
+// Expose for onclick
+window.toggleAdminChat = toggleAdminChat;
+window.sendAdminMessage = sendAdminMessage;
+
+// Update auth UI to include admin chat
+const originalUpdateAuthUI = updateAuthUI;
+updateAuthUI = function(user) {
+    originalUpdateAuthUI(user);
+    if (user && isAdmin()) {
+        setTimeout(createAdminChatUI, 100);
+    } else {
+        // Remove chat UI if not admin
+        const chatBtn = document.querySelector('.admin-chat-btn');
+        if (chatBtn) chatBtn.remove();
+        const chatModal = document.querySelector('.admin-chat-modal');
+        if (chatModal) chatModal.remove();
+    }
+};
 
 // Initialize
 loadRequests();
