@@ -33,7 +33,7 @@ const firebaseConfig = {
 };
 
 // Admin emails
-const ADMIN_EMAILS = ['averyopela1@gmail.com'];
+const ADMIN_EMAILS = ['averyopela1@gmail.com', 'lukehuffstetler80@gmail.com'];
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
