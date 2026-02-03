@@ -1114,16 +1114,165 @@ window.addAdminReply = addAdminReply;
 window.deleteAdminPost = deleteAdminPost;
 window.deleteAdminReply = deleteAdminReply;
 
-// Update auth UI to include admin forum
+// ==================== Admin User Management ====================
+let allUsers = [];
+let userListSort = 'date-desc';
+let userSearchQuery = '';
+
+function createUserManagementUI() {
+    if (!isAdmin()) return;
+
+    const existing = document.getElementById('admin-users-section');
+    if (existing) existing.remove();
+
+    const usersSection = document.createElement('section');
+    usersSection.id = 'admin-users-section';
+    usersSection.className = 'admin-users-section';
+    usersSection.innerHTML = `
+        <div class="admin-users-header">
+            <h2>User Management</h2>
+            <span class="admin-badge">Admin Only</span>
+        </div>
+        <div class="admin-users-controls">
+            <input type="text" id="user-search" placeholder="Search users..." class="user-search-input">
+            <select id="user-sort" class="user-sort-select">
+                <option value="date-desc">Newest First</option>
+                <option value="date-asc">Oldest First</option>
+                <option value="alpha-asc">A-Z</option>
+                <option value="alpha-desc">Z-A</option>
+                <option value="admins">Admins First</option>
+            </select>
+        </div>
+        <div class="admin-users-count" id="users-count">Loading users...</div>
+        <div class="admin-users-list" id="admin-users-list">
+            <p class="admin-users-loading">Loading users...</p>
+        </div>
+    `;
+
+    // Insert after admin forum section
+    const container = document.querySelector('.container');
+    const requestsSection = document.querySelector('.requests-section');
+    const forumSection = document.getElementById('admin-forum-section');
+    if (container && requestsSection) {
+        container.insertBefore(usersSection, forumSection ? forumSection.nextSibling : requestsSection);
+    }
+
+    // Add event listeners
+    document.getElementById('user-search').addEventListener('input', (e) => {
+        userSearchQuery = e.target.value.toLowerCase();
+        renderUserList();
+    });
+
+    document.getElementById('user-sort').addEventListener('change', (e) => {
+        userListSort = e.target.value;
+        renderUserList();
+    });
+
+    loadAllUsers();
+}
+
+async function loadAllUsers() {
+    if (!isAdmin()) return;
+
+    try {
+        const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+
+        onSnapshot(q, (snapshot) => {
+            allUsers = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            renderUserList();
+        }, (error) => {
+            console.error('Error loading users:', error);
+            const listDiv = document.getElementById('admin-users-list');
+            if (listDiv) {
+                listDiv.innerHTML = '<p class="admin-users-error">Error loading users</p>';
+            }
+        });
+    } catch (error) {
+        console.error('Error setting up users listener:', error);
+    }
+}
+
+function renderUserList() {
+    const listDiv = document.getElementById('admin-users-list');
+    const countDiv = document.getElementById('users-count');
+    if (!listDiv) return;
+
+    let filteredUsers = [...allUsers];
+
+    // Apply search filter
+    if (userSearchQuery) {
+        filteredUsers = filteredUsers.filter(user => {
+            const username = (user.username || '').toLowerCase();
+            const email = (user.email || '').toLowerCase();
+            return username.includes(userSearchQuery) || email.includes(userSearchQuery);
+        });
+    }
+
+    // Apply sorting
+    filteredUsers.sort((a, b) => {
+        switch (userListSort) {
+            case 'date-desc':
+                return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+            case 'date-asc':
+                return (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0);
+            case 'alpha-asc':
+                return (a.username || '').localeCompare(b.username || '');
+            case 'alpha-desc':
+                return (b.username || '').localeCompare(a.username || '');
+            case 'admins':
+                const aAdmin = ADMIN_EMAILS.includes(a.email) ? 0 : 1;
+                const bAdmin = ADMIN_EMAILS.includes(b.email) ? 0 : 1;
+                if (aAdmin !== bAdmin) return aAdmin - bAdmin;
+                return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+            default:
+                return 0;
+        }
+    });
+
+    // Update count
+    if (countDiv) {
+        countDiv.textContent = `${filteredUsers.length} of ${allUsers.length} users`;
+    }
+
+    if (filteredUsers.length === 0) {
+        listDiv.innerHTML = '<p class="admin-users-empty">No users found</p>';
+        return;
+    }
+
+    listDiv.innerHTML = filteredUsers.map(user => {
+        const isUserAdmin = ADMIN_EMAILS.includes(user.email);
+        const joinDate = user.createdAt ? formatDate(user.createdAt) : 'Unknown';
+        return `
+            <div class="admin-user-item ${isUserAdmin ? 'is-admin' : ''}">
+                <div class="admin-user-info">
+                    <span class="admin-user-name">${escapeHtml(user.username || 'No username')}</span>
+                    ${isUserAdmin ? '<span class="admin-user-badge">Admin</span>' : ''}
+                </div>
+                <div class="admin-user-details">
+                    <span class="admin-user-email">${escapeHtml(user.email || 'No email')}</span>
+                    <span class="admin-user-date">Joined: ${joinDate}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Update auth UI to include admin forum and user management
 const originalUpdateAuthUI = updateAuthUI;
 updateAuthUI = function(user) {
     originalUpdateAuthUI(user);
     if (user && isAdmin()) {
         setTimeout(createAdminForumUI, 100);
+        setTimeout(createUserManagementUI, 150);
     } else {
-        // Remove forum if not admin
+        // Remove admin sections if not admin
         const forum = document.getElementById('admin-forum-section');
         if (forum) forum.remove();
+        const users = document.getElementById('admin-users-section');
+        if (users) users.remove();
     }
 };
 

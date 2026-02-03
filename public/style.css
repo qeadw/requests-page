@@ -1018,3 +1018,146 @@ button:disabled {
     padding: 1.5rem;
     font-size: 0.95rem;
 }
+
+/* Admin User Management */
+.admin-users-section {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 2px solid #4a148c;
+}
+
+.admin-users-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.admin-users-header h2 {
+    margin: 0;
+    color: #bb86fc;
+    font-size: 1.3rem;
+}
+
+.admin-users-controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.user-search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.6rem 1rem;
+    border: 1px solid #4a148c;
+    border-radius: 6px;
+    background: #0d0d1a;
+    color: #fff;
+    font-size: 0.95rem;
+}
+
+.user-search-input:focus {
+    outline: none;
+    border-color: #bb86fc;
+}
+
+.user-sort-select {
+    padding: 0.6rem 1rem;
+    border: 1px solid #4a148c;
+    border-radius: 6px;
+    background: #0d0d1a;
+    color: #fff;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.user-sort-select:focus {
+    outline: none;
+    border-color: #bb86fc;
+}
+
+.admin-users-count {
+    color: #888;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+}
+
+.admin-users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.admin-user-item {
+    background: #0d0d1a;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    border: 1px solid #2a2a4a;
+    transition: border-color 0.2s;
+}
+
+.admin-user-item:hover {
+    border-color: #4a148c;
+}
+
+.admin-user-item.is-admin {
+    border-color: #bb86fc;
+    background: linear-gradient(135deg, #1a0a2e 0%, #0d0d1a 100%);
+}
+
+.admin-user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.admin-user-name {
+    font-weight: 600;
+    color: #fff;
+    font-size: 0.95rem;
+}
+
+.admin-user-badge {
+    background: #bb86fc;
+    color: #000;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.admin-user-details {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.admin-user-email {
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.admin-user-date {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.admin-users-empty,
+.admin-users-loading,
+.admin-users-error {
+    color: #666;
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.admin-users-error {
+    color: #ff6b6b;
+}
