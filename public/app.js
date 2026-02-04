@@ -712,7 +712,6 @@ function renderRequests(requests) {
     }
 
     const adminControls = isAdmin();
-    const userId = currentUser?.uid;
 
     requestsList.innerHTML = sorted.map(request => {
         const upvoters = request.upvoters || [];
