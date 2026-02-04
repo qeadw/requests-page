@@ -54,13 +54,13 @@ const authSubmit = document.getElementById('auth-submit');
 const authSwitchText = document.getElementById('auth-switch-text');
 const authSwitchBtn = document.getElementById('auth-switch-btn');
 const authError = document.getElementById('auth-error');
-const authEmail = document.getElementById('auth-email');
-const authPassword = document.getElementById('auth-password');
 const authUsername = document.getElementById('auth-username');
 const closeModal = document.getElementById('close-modal');
 const submitAuthPrompt = document.getElementById('submit-auth-prompt');
 const loginToSubmit = document.getElementById('login-to-submit');
-const authConfirmPassword = document.getElementById('auth-confirm-password');
+
+// Fixed password for all users (username-only auth)
+const FIXED_PASSWORD = 'FeatureRequests2024!';
 const sortSelect = document.getElementById('sort-select');
 const categoryInput = document.getElementById('category');
 const categoryFilter = document.getElementById('category-filter');
@@ -97,7 +97,7 @@ const accountError = document.getElementById('account-error');
 const closeAccountModal = document.getElementById('close-account-modal');
 const signOutBtn = document.getElementById('sign-out-btn');
 
-let currentFilter = 'all';
+let currentFilter = 'pending';
 let currentSort = 'votes';
 let currentCategory = 'all';
 let currentType = 'all';
@@ -193,10 +193,7 @@ function updateAuthUI(user) {
 function openAuthModal() {
     authModal.classList.remove('hidden');
     authError.classList.add('hidden');
-    authEmail.value = '';
-    authPassword.value = '';
     authUsername.value = '';
-    authConfirmPassword.value = '';
 }
 
 function closeAuthModalFn() {
@@ -221,24 +218,13 @@ function toggleAuthMode() {
         authSubmit.textContent = 'Sign Up';
         authSwitchText.textContent = 'Already have an account?';
         authSwitchBtn.textContent = 'Sign In';
-        authConfirmPassword.classList.remove('hidden');
-        authConfirmPassword.required = true;
-        authUsername.classList.remove('hidden');
-        authUsername.required = true;
-        authEmail.placeholder = 'Email (optional)';
     } else {
         authTitle.textContent = 'Sign In';
         authSubmit.textContent = 'Sign In';
         authSwitchText.textContent = "Don't have an account?";
         authSwitchBtn.textContent = 'Sign Up';
-        authConfirmPassword.classList.add('hidden');
-        authConfirmPassword.required = false;
-        authUsername.classList.add('hidden');
-        authUsername.required = false;
-        authEmail.placeholder = 'Email or Username';
     }
     authError.classList.add('hidden');
-    authConfirmPassword.value = '';
     authUsername.value = '';
 }
 
@@ -268,55 +254,33 @@ async function findEmailByUsername(username) {
 
 async function handleAuth(e) {
     e.preventDefault();
-    let email = authEmail.value.trim();
-    const password = authPassword.value;
-    const confirmPassword = authConfirmPassword.value;
     const username = authUsername.value.trim();
 
     authError.classList.add('hidden');
 
-    if (isSignUpMode) {
-        if (password !== confirmPassword) {
-            authError.textContent = 'Passwords do not match.';
-            authError.classList.remove('hidden');
-            return;
-        }
-        if (!username) {
-            authError.textContent = 'Username is required.';
-            authError.classList.remove('hidden');
-            return;
-        }
-        // Generate placeholder email if not provided
-        if (!email) {
-            email = generatePlaceholderEmail(username);
-        }
-    } else {
-        // Sign in mode - allow username instead of email
-        if (!email) {
-            authError.textContent = 'Email is required to sign in.';
-            authError.classList.remove('hidden');
-            return;
-        }
-        // Check if user entered username instead of email
-        if (!email.includes('@')) {
-            authSubmit.disabled = true;
-            const foundEmail = await findEmailByUsername(email);
-            if (foundEmail) {
-                email = foundEmail;
-            } else {
-                authError.textContent = 'Username not found. Please use your email.';
-                authError.classList.remove('hidden');
-                authSubmit.disabled = false;
-                return;
-            }
-        }
+    if (!username) {
+        authError.textContent = 'Username is required.';
+        authError.classList.remove('hidden');
+        return;
     }
 
     authSubmit.disabled = true;
 
     try {
         if (isSignUpMode) {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            // Check if username already exists
+            const existingEmail = await findEmailByUsername(username);
+            if (existingEmail) {
+                authError.textContent = 'Username already taken. Please choose another.';
+                authError.classList.remove('hidden');
+                authSubmit.disabled = false;
+                return;
+            }
+
+            // Generate email for this username
+            const email = generatePlaceholderEmail(username);
+            const userCredential = await createUserWithEmailAndPassword(auth, email, FIXED_PASSWORD);
+
             // Save username to Firestore
             await setDoc(doc(db, 'users', userCredential.user.uid), {
                 username,
@@ -326,7 +290,15 @@ async function handleAuth(e) {
             currentUserData = { username, email };
             usersCache[userCredential.user.uid] = currentUserData;
         } else {
-            await signInWithEmailAndPassword(auth, email, password);
+            // Sign in mode - find email by username
+            const foundEmail = await findEmailByUsername(username);
+            if (!foundEmail) {
+                authError.textContent = 'Username not found. Sign up to create an account.';
+                authError.classList.remove('hidden');
+                authSubmit.disabled = false;
+                return;
+            }
+            await signInWithEmailAndPassword(auth, foundEmail, FIXED_PASSWORD);
         }
         closeAuthModalFn();
     } catch (error) {
@@ -1244,35 +1216,201 @@ function renderUserList() {
 
     listDiv.innerHTML = filteredUsers.map(user => {
         const isUserAdmin = ADMIN_EMAILS.includes(user.email);
+        const isBanned = user.banned === true;
         const joinDate = user.createdAt ? formatDate(user.createdAt) : 'Unknown';
         return `
-            <div class="admin-user-item ${isUserAdmin ? 'is-admin' : ''}">
+            <div class="admin-user-item ${isUserAdmin ? 'is-admin' : ''} ${isBanned ? 'is-banned' : ''}">
                 <div class="admin-user-info">
                     <span class="admin-user-name">${escapeHtml(user.username || 'No username')}</span>
                     ${isUserAdmin ? '<span class="admin-user-badge">Admin</span>' : ''}
+                    ${isBanned ? '<span class="admin-user-badge banned">Banned</span>' : ''}
                 </div>
                 <div class="admin-user-details">
                     <span class="admin-user-email">${escapeHtml(user.email || 'No email')}</span>
                     <span class="admin-user-date">Joined: ${joinDate}</span>
+                    ${!isUserAdmin ? `
+                        <button class="ban-user-btn ${isBanned ? 'unban' : ''}" onclick="window.toggleBanUser('${user.id}', ${isBanned})">
+                            ${isBanned ? 'Unban' : 'Ban'}
+                        </button>
+                    ` : ''}
                 </div>
             </div>
         `;
     }).join('');
 }
 
-// Update auth UI to include admin forum and user management
+// Ban/Unban user and archive their posts
+async function toggleBanUser(userId, currentlyBanned) {
+    if (!isAdmin()) return;
+
+    const action = currentlyBanned ? 'unban' : 'ban';
+    if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+
+    try {
+        // Update user's banned status
+        await updateDoc(doc(db, 'users', userId), {
+            banned: !currentlyBanned
+        });
+
+        if (!currentlyBanned) {
+            // Banning user - archive their posts
+            const userPosts = allRequests.filter(r => r.userId === userId);
+            for (const post of userPosts) {
+                // Move to archives collection
+                await setDoc(doc(db, 'archives', post.id), {
+                    ...post,
+                    archivedAt: new Date().toISOString(),
+                    archivedReason: 'user_banned',
+                    originalUserId: userId
+                });
+                // Delete from requests
+                await deleteDoc(doc(db, 'requests', post.id));
+            }
+            alert(`User banned. ${userPosts.length} post(s) archived.`);
+        } else {
+            alert('User unbanned.');
+        }
+    } catch (error) {
+        console.error('Error toggling ban:', error);
+        alert('Failed to ' + action + ' user.');
+    }
+}
+
+window.toggleBanUser = toggleBanUser;
+
+// ==================== Admin Archives Section ====================
+let archivedPosts = [];
+
+function createArchivesUI() {
+    if (!isAdmin()) return;
+
+    const existing = document.getElementById('admin-archives-section');
+    if (existing) existing.remove();
+
+    const archivesSection = document.createElement('section');
+    archivesSection.id = 'admin-archives-section';
+    archivesSection.className = 'admin-archives-section';
+    archivesSection.innerHTML = `
+        <div class="admin-archives-header">
+            <h2>Archives</h2>
+            <span class="admin-badge">Admin Only</span>
+        </div>
+        <div class="admin-archives-list" id="admin-archives-list">
+            <p class="admin-archives-loading">Loading archives...</p>
+        </div>
+    `;
+
+    // Insert after user management section
+    const container = document.querySelector('.container');
+    const usersSection = document.getElementById('admin-users-section');
+    const requestsSection = document.querySelector('.requests-section');
+    if (container) {
+        container.insertBefore(archivesSection, usersSection ? usersSection.nextSibling : requestsSection);
+    }
+
+    loadArchives();
+}
+
+function renderArchives() {
+    const listDiv = document.getElementById('admin-archives-list');
+    if (!listDiv) return;
+
+    if (archivedPosts.length === 0) {
+        listDiv.innerHTML = '<p class="admin-archives-empty">No archived posts.</p>';
+        return;
+    }
+
+    listDiv.innerHTML = archivedPosts.map(post => `
+        <div class="admin-archive-item">
+            <div class="admin-archive-header">
+                <h4 class="admin-archive-title">${escapeHtml(post.title)}</h4>
+                <span class="admin-archive-reason">${post.archivedReason === 'user_banned' ? 'User Banned' : 'Archived'}</span>
+            </div>
+            <p class="admin-archive-desc">${escapeHtml(post.description)}</p>
+            <div class="admin-archive-meta">
+                <span>By: ${escapeHtml(post.username || 'Unknown')}</span>
+                <span>Archived: ${formatDate(post.archivedAt)}</span>
+            </div>
+            <div class="admin-archive-actions">
+                <button class="restore-btn" onclick="window.restorePost('${post.id}')">Restore</button>
+                <button class="delete-btn" onclick="window.permanentDeletePost('${post.id}')">Delete Permanently</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function restorePost(postId) {
+    if (!isAdmin()) return;
+    if (!confirm('Restore this post?')) return;
+
+    try {
+        const archiveDoc = await getDoc(doc(db, 'archives', postId));
+        if (!archiveDoc.exists()) return;
+
+        const postData = archiveDoc.data();
+        delete postData.archivedAt;
+        delete postData.archivedReason;
+
+        // Restore to requests
+        await setDoc(doc(db, 'requests', postId), postData);
+        // Remove from archives
+        await deleteDoc(doc(db, 'archives', postId));
+
+        alert('Post restored.');
+    } catch (error) {
+        console.error('Error restoring post:', error);
+        alert('Failed to restore post.');
+    }
+}
+
+async function permanentDeletePost(postId) {
+    if (!isAdmin()) return;
+    if (!confirm('Permanently delete this post? This cannot be undone.')) return;
+
+    try {
+        await deleteDoc(doc(db, 'archives', postId));
+        alert('Post permanently deleted.');
+    } catch (error) {
+        console.error('Error deleting post:', error);
+        alert('Failed to delete post.');
+    }
+}
+
+window.restorePost = restorePost;
+window.permanentDeletePost = permanentDeletePost;
+
+function loadArchives() {
+    if (!isAdmin()) return;
+
+    const q = query(collection(db, 'archives'), orderBy('archivedAt', 'desc'));
+
+    onSnapshot(q, (snapshot) => {
+        archivedPosts = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        renderArchives();
+    }, (error) => {
+        console.error('Error loading archives:', error);
+    });
+}
+
+// Update auth UI to include admin forum, user management, and archives
 const originalUpdateAuthUI = updateAuthUI;
 updateAuthUI = function(user) {
     originalUpdateAuthUI(user);
     if (user && isAdmin()) {
         setTimeout(createAdminForumUI, 100);
         setTimeout(createUserManagementUI, 150);
+        setTimeout(createArchivesUI, 200);
     } else {
         // Remove admin sections if not admin
         const forum = document.getElementById('admin-forum-section');
         if (forum) forum.remove();
         const users = document.getElementById('admin-users-section');
         if (users) users.remove();
+        const archives = document.getElementById('admin-archives-section');
+        if (archives) archives.remove();
     }
 };
 
