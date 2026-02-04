@@ -73,7 +73,7 @@ const CHAR_SUBSTITUTIONS = {
 
 // Normalize text to catch bypasses
 function normalizeText(text) {
-    if (!text) return '';
+    if (!text) return { withSpaces: '', noSpaces: '' };
 
     // Convert to lowercase
     let normalized = text.toLowerCase();
