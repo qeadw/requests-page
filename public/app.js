@@ -35,6 +35,117 @@ const firebaseConfig = {
 // Admin emails
 const ADMIN_EMAILS = ['averyopela1@gmail.com', 'lukehuffstetler80@gmail.com'];
 
+// ============== AUTOMODERATION FILTER ==============
+// Banned words and patterns (lowercase)
+const BANNED_WORDS = [
+    // Common profanity
+    'fuck', 'shit', 'ass', 'bitch', 'damn', 'crap', 'piss', 'dick', 'cock', 'pussy',
+    'bastard', 'whore', 'slut', 'cunt', 'fag', 'faggot', 'nigger', 'nigga', 'retard',
+    'retarded', 'spic', 'kike', 'chink', 'gook', 'wetback', 'beaner', 'cracker',
+    'honky', 'dyke', 'tranny', 'twat', 'wanker', 'bollocks', 'arse', 'arsehole',
+    'asshole', 'bullshit', 'horseshit', 'motherfucker', 'fucker', 'dumbass', 'jackass',
+    'dipshit', 'shithead', 'fuckhead', 'dickhead', 'prick', 'douche', 'douchebag',
+    // Slurs and hate speech
+    'nazi', 'hitler', 'kkk', 'klan',
+    // Pregnancy-related
+    'pregnant', 'pregnancy', 'abortion', 'miscarriage', 'fetus', 'embryo', 'conceive',
+    'conception', 'prenatal', 'trimester', 'maternity', 'expecting', 'baby bump',
+    'morning sickness', 'labor', 'delivery', 'childbirth', 'giving birth', 'due date',
+    'ultrasound', 'obgyn', 'midwife', 'cesarean', 'c-section', 'epidural', 'contraction',
+    // Additional offensive terms
+    'rape', 'rapist', 'molest', 'pedophile', 'pedo', 'incest'
+];
+
+// Character substitutions for leetspeak detection
+const CHAR_SUBSTITUTIONS = {
+    '0': 'o', '1': 'i', '2': 'z', '3': 'e', '4': 'a', '5': 's', '6': 'g', '7': 't', '8': 'b', '9': 'g',
+    '@': 'a', '$': 's', '!': 'i', '|': 'i', '+': 't', '(': 'c', ')': 'c',
+    '<': 'c', '>': 'c', '{': 'c', '}': 'c', '[': 'c', ']': 'c',
+    'ä': 'a', 'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
+    'ë': 'e', 'è': 'e', 'é': 'e', 'ê': 'e',
+    'ï': 'i', 'ì': 'i', 'í': 'i', 'î': 'i',
+    'ö': 'o', 'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
+    'ü': 'u', 'ù': 'u', 'ú': 'u', 'û': 'u',
+    'ñ': 'n', 'ç': 'c', 'ß': 'ss',
+    '₀': 'o', '₁': 'i', '₂': 'z', '₃': 'e', '₄': 'a', '₅': 's', '₆': 'g', '₇': 't', '₈': 'b', '₉': 'g',
+    '⁰': 'o', '¹': 'i', '²': 'z', '³': 'e', '⁴': 'a', '⁵': 's', '⁶': 'g', '⁷': 't', '⁸': 'b', '⁹': 'g'
+};
+
+// Normalize text to catch bypasses
+function normalizeText(text) {
+    if (!text) return '';
+
+    // Convert to lowercase
+    let normalized = text.toLowerCase();
+
+    // Apply character substitutions
+    for (const [char, replacement] of Object.entries(CHAR_SUBSTITUTIONS)) {
+        normalized = normalized.split(char).join(replacement);
+    }
+
+    // Remove repeated characters (e.g., "fuuuuck" -> "fuck")
+    normalized = normalized.replace(/(.)\1{2,}/g, '$1$1');
+
+    // Remove spaces between letters that might be used to bypass (e.g., "f u c k")
+    normalized = normalized.replace(/\s+/g, ' ');
+
+    // Also create a version with no spaces for detecting spaced-out words
+    const noSpaces = normalized.replace(/\s/g, '');
+
+    return { withSpaces: normalized, noSpaces };
+}
+
+// Check if text contains banned content
+function containsBannedContent(text) {
+    if (!text) return { blocked: false };
+
+    const { withSpaces, noSpaces } = normalizeText(text);
+
+    for (const word of BANNED_WORDS) {
+        // Check with spaces (word boundaries)
+        const wordRegex = new RegExp(`\\b${word}\\b`, 'i');
+        if (wordRegex.test(withSpaces)) {
+            return { blocked: true, word: word };
+        }
+
+        // Check without spaces (catches "f u c k")
+        if (noSpaces.includes(word)) {
+            return { blocked: true, word: word };
+        }
+
+        // Check for partial matches in longer words (e.g., "fucking" contains "fuck")
+        if (withSpaces.includes(word)) {
+            return { blocked: true, word: word };
+        }
+    }
+
+    return { blocked: false };
+}
+
+// Validate and sanitize user input
+function validateContent(title, description) {
+    const titleCheck = containsBannedContent(title);
+    if (titleCheck.blocked) {
+        return { valid: false, message: 'Your title contains inappropriate content. Please revise and try again.' };
+    }
+
+    const descCheck = containsBannedContent(description);
+    if (descCheck.blocked) {
+        return { valid: false, message: 'Your description contains inappropriate content. Please revise and try again.' };
+    }
+
+    return { valid: true };
+}
+
+function validateComment(text) {
+    const check = containsBannedContent(text);
+    if (check.blocked) {
+        return { valid: false, message: 'Your comment contains inappropriate content. Please revise and try again.' };
+    }
+    return { valid: true };
+}
+// ============== END AUTOMODERATION FILTER ==============
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -174,6 +285,10 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 function updateAuthUI(user) {
+    // Show/hide user-specific filter buttons
+    const userFilters = document.querySelectorAll('.user-filter');
+    const adminFilters = document.querySelectorAll('.admin-filter');
+
     if (user) {
         const displayName = currentUserData?.username || user.email;
         authStatus.innerHTML = `
@@ -182,11 +297,25 @@ function updateAuthUI(user) {
         document.getElementById('account-btn').addEventListener('click', openAccountModal);
         requestForm.classList.remove('hidden');
         submitAuthPrompt.classList.add('hidden');
+
+        // Show user filters
+        userFilters.forEach(btn => btn.classList.remove('hidden'));
+
+        // Show admin filters if user is admin
+        if (isAdmin()) {
+            adminFilters.forEach(btn => btn.classList.remove('hidden'));
+        } else {
+            adminFilters.forEach(btn => btn.classList.add('hidden'));
+        }
     } else {
         authStatus.innerHTML = `<button id="sign-in-btn" class="sign-in-btn">Sign In</button>`;
         document.getElementById('sign-in-btn').addEventListener('click', openAuthModal);
         requestForm.classList.add('hidden');
         submitAuthPrompt.classList.remove('hidden');
+
+        // Hide user and admin filters
+        userFilters.forEach(btn => btn.classList.add('hidden'));
+        adminFilters.forEach(btn => btn.classList.add('hidden'));
     }
 }
 
@@ -406,6 +535,13 @@ requestForm.addEventListener('submit', async (e) => {
 
     if (!title || !description) return;
 
+    // Automoderation check
+    const validation = validateContent(title, description);
+    if (!validation.valid) {
+        alert(validation.message);
+        return;
+    }
+
     const submitBtn = requestForm.querySelector('button');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting...';
@@ -538,10 +674,25 @@ function sortRequests(requests) {
 
 // Render requests
 function renderRequests(requests) {
-    // Filter by status
-    let filtered = currentFilter === 'all'
-        ? requests
-        : requests.filter(r => r.status === currentFilter);
+    const userId = currentUser?.uid;
+
+    // Filter by status or special filters
+    let filtered;
+    if (currentFilter === 'all') {
+        filtered = requests;
+    } else if (currentFilter === 'my-requests') {
+        // Show all requests by the current user (all statuses)
+        filtered = userId ? requests.filter(r => r.userId === userId) : [];
+    } else if (currentFilter === 'my-rejected') {
+        // Show rejected requests by the current user
+        filtered = userId ? requests.filter(r => r.userId === userId && r.status === 'rejected') : [];
+    } else if (currentFilter === 'rejected') {
+        // Admin view - show all rejected requests
+        filtered = requests.filter(r => r.status === 'rejected');
+    } else {
+        // Standard status filter
+        filtered = requests.filter(r => r.status === currentFilter);
+    }
 
     // Filter by category
     if (currentCategory !== 'all') {
@@ -691,6 +842,13 @@ async function addComment(event, requestId) {
 
     if (!text) return;
 
+    // Automoderation check for comments
+    const validation = validateComment(text);
+    if (!validation.valid) {
+        alert(validation.message);
+        return;
+    }
+
     const submitBtn = form.querySelector('button');
     submitBtn.disabled = true;
 
@@ -760,6 +918,13 @@ async function editComment(requestId, commentId) {
     const newText = prompt('Edit comment:', comment.text);
     if (newText === null || newText.trim() === '' || newText === comment.text) return;
 
+    // Automoderation check for edited comment
+    const validation = validateComment(newText.trim());
+    if (!validation.valid) {
+        alert(validation.message);
+        return;
+    }
+
     try {
         const comments = (request.comments || []).map(c => {
             if (c.id === commentId) {
@@ -797,6 +962,13 @@ async function editRequest(requestId) {
     }
 
     if (newTitle === request.title && newDescription === request.description) return;
+
+    // Automoderation check for edited request
+    const validation = validateContent(newTitle.trim(), newDescription.trim());
+    if (!validation.valid) {
+        alert(validation.message);
+        return;
+    }
 
     try {
         const requestRef = doc(db, 'requests', requestId);

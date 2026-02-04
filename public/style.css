@@ -326,6 +326,34 @@ button:disabled {
     background: #4a9eff;
 }
 
+/* User-specific filter buttons */
+.filter-btn.user-filter {
+    background: #2d4a2d;
+    border: 1px solid #4a8a4a;
+}
+
+.filter-btn.user-filter:hover {
+    background: #3d6a3d;
+}
+
+.filter-btn.user-filter.active {
+    background: #4a9a4a;
+}
+
+/* Admin-specific filter buttons */
+.filter-btn.admin-filter {
+    background: #4a2d2d;
+    border: 1px solid #8a4a4a;
+}
+
+.filter-btn.admin-filter:hover {
+    background: #6a3d3d;
+}
+
+.filter-btn.admin-filter.active {
+    background: #9a4a4a;
+}
+
 #requests-list {
     display: flex;
     flex-direction: column;
