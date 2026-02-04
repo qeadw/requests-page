@@ -152,6 +152,13 @@ header p {
     display: none;
 }
 
+.auth-hint {
+    color: #888;
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
 /* Auth Prompt */
 .auth-prompt {
     text-align: center;

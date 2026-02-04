@@ -166,12 +166,14 @@ const authSwitchText = document.getElementById('auth-switch-text');
 const authSwitchBtn = document.getElementById('auth-switch-btn');
 const authError = document.getElementById('auth-error');
 const authUsername = document.getElementById('auth-username');
+const authPassword = document.getElementById('auth-password');
+const authHint = document.getElementById('auth-hint');
 const closeModal = document.getElementById('close-modal');
 const submitAuthPrompt = document.getElementById('submit-auth-prompt');
 const loginToSubmit = document.getElementById('login-to-submit');
 
-// Fixed password for all users (username-only auth)
-const FIXED_PASSWORD = 'FeatureRequests2024!';
+// Old fixed password for existing users who need to log in
+const OLD_FIXED_PASSWORD = 'FeatureRequests2024!';
 const sortSelect = document.getElementById('sort-select');
 const categoryInput = document.getElementById('category');
 const categoryFilter = document.getElementById('category-filter');
@@ -323,10 +325,19 @@ function openAuthModal() {
     authModal.classList.remove('hidden');
     authError.classList.add('hidden');
     authUsername.value = '';
+    authPassword.value = '';
+    // Show hint for existing users
+    if (!isSignUpMode) {
+        authHint.textContent = 'Existing users: use password "FeatureRequests2024!"';
+        authHint.style.color = '#888';
+    } else {
+        authHint.textContent = '';
+    }
 }
 
 function closeAuthModalFn() {
     authModal.classList.add('hidden');
+    authPassword.value = '';
 }
 
 function openAccountModal() {
@@ -347,14 +358,18 @@ function toggleAuthMode() {
         authSubmit.textContent = 'Sign Up';
         authSwitchText.textContent = 'Already have an account?';
         authSwitchBtn.textContent = 'Sign In';
+        authHint.textContent = '';
     } else {
         authTitle.textContent = 'Sign In';
         authSubmit.textContent = 'Sign In';
         authSwitchText.textContent = "Don't have an account?";
         authSwitchBtn.textContent = 'Sign Up';
+        authHint.textContent = 'Existing users: use password "FeatureRequests2024!"';
+        authHint.style.color = '#888';
     }
     authError.classList.add('hidden');
     authUsername.value = '';
+    authPassword.value = '';
 }
 
 // Generate a placeholder email for users who don't provide one
@@ -384,11 +399,24 @@ async function findEmailByUsername(username) {
 async function handleAuth(e) {
     e.preventDefault();
     const username = authUsername.value.trim();
+    const password = authPassword.value;
 
     authError.classList.add('hidden');
 
     if (!username) {
         authError.textContent = 'Username is required.';
+        authError.classList.remove('hidden');
+        return;
+    }
+
+    if (!password) {
+        authError.textContent = 'Password is required.';
+        authError.classList.remove('hidden');
+        return;
+    }
+
+    if (isSignUpMode && password.length < 6) {
+        authError.textContent = 'Password must be at least 6 characters.';
         authError.classList.remove('hidden');
         return;
     }
@@ -408,7 +436,7 @@ async function handleAuth(e) {
 
             // Generate email for this username
             const email = generatePlaceholderEmail(username);
-            const userCredential = await createUserWithEmailAndPassword(auth, email, FIXED_PASSWORD);
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
             // Save username to Firestore
             await setDoc(doc(db, 'users', userCredential.user.uid), {
@@ -427,7 +455,7 @@ async function handleAuth(e) {
                 authSubmit.disabled = false;
                 return;
             }
-            await signInWithEmailAndPassword(auth, foundEmail, FIXED_PASSWORD);
+            await signInWithEmailAndPassword(auth, foundEmail, password);
         }
         closeAuthModalFn();
     } catch (error) {
