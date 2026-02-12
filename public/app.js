@@ -1089,6 +1089,7 @@ function createAdminForumUI() {
         <div class="admin-forum-header">
             <h2>Admin Forum</h2>
             <span class="admin-badge">Admin Only</span>
+            <button class="admin-forum-clear-all-btn" onclick="window.clearAllAdminPosts()">Clear All</button>
         </div>
         <form class="admin-forum-form" id="admin-forum-form">
             <input type="text" id="admin-forum-title" placeholder="Post title..." required>
@@ -1129,7 +1130,8 @@ function renderAdminForum() {
                 <h3 class="admin-forum-post-title">${escapeHtml(post.title)}</h3>
                 <div class="admin-forum-post-meta">
                     <span class="admin-forum-post-author">${escapeHtml(post.username || 'Admin')}</span>
-                    <span class="admin-forum-post-date">${formatDate(post.createdAt)}</span>
+                    <span class="admin-forum-post-date">${formatDate(post.createdAt)}${post.editedAt ? ' (edited)' : ''}</span>
+                    <button class="admin-forum-edit-btn" onclick="window.editAdminPost('${post.id}')">Edit</button>
                     <button class="admin-forum-delete-btn" onclick="window.deleteAdminPost('${post.id}')">&times;</button>
                 </div>
             </div>
@@ -1263,6 +1265,57 @@ async function deleteAdminReply(postId, replyId) {
     }
 }
 
+async function clearAllAdminPosts() {
+    if (!isAdmin()) return;
+    if (adminForumPosts.length === 0) {
+        alert('No posts to clear!');
+        return;
+    }
+    if (!confirm(`Are you sure you want to delete ALL ${adminForumPosts.length} posts? This cannot be undone!`)) return;
+    if (!confirm('Are you REALLY sure? Type "yes" mentally and click OK to confirm.')) return;
+
+    try {
+        const deletePromises = adminForumPosts.map(post =>
+            deleteDoc(doc(db, 'admin_forum', post.id))
+        );
+        await Promise.all(deletePromises);
+        alert('All posts have been deleted.');
+    } catch (error) {
+        console.error('Error clearing posts:', error);
+        alert('Failed to clear all posts. Some may have been deleted.');
+    }
+}
+
+async function editAdminPost(postId) {
+    if (!isAdmin()) return;
+
+    const post = adminForumPosts.find(p => p.id === postId);
+    if (!post) return;
+
+    const newTitle = prompt('Edit title:', post.title);
+    if (newTitle === null) return; // Cancelled
+
+    const newContent = prompt('Edit content:', post.content);
+    if (newContent === null) return; // Cancelled
+
+    if (!newTitle.trim() || !newContent.trim()) {
+        alert('Title and content cannot be empty!');
+        return;
+    }
+
+    try {
+        const postRef = doc(db, 'admin_forum', postId);
+        await updateDoc(postRef, {
+            title: newTitle.trim(),
+            content: newContent.trim(),
+            editedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error editing post:', error);
+        alert('Failed to edit post. Please try again.');
+    }
+}
+
 function loadAdminForum() {
     if (!isAdmin()) return;
 
@@ -1284,6 +1337,8 @@ window.toggleAdminReplies = toggleAdminReplies;
 window.addAdminReply = addAdminReply;
 window.deleteAdminPost = deleteAdminPost;
 window.deleteAdminReply = deleteAdminReply;
+window.clearAllAdminPosts = clearAllAdminPosts;
+window.editAdminPost = editAdminPost;
 
 // ==================== Admin User Management ====================
 let allUsers = [];

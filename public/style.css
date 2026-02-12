@@ -933,6 +933,37 @@ button:disabled {
     color: #ef4444;
 }
 
+.admin-forum-edit-btn {
+    background: #2563eb;
+    border: none;
+    color: #fff;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.admin-forum-edit-btn:hover {
+    background: #1d4ed8;
+}
+
+.admin-forum-clear-all-btn {
+    background: #dc2626;
+    border: none;
+    color: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-weight: bold;
+    margin-left: auto;
+}
+
+.admin-forum-clear-all-btn:hover {
+    background: #b91c1c;
+}
+
 .admin-forum-post-content {
     color: #ccc;
     margin: 0.75rem 0;
