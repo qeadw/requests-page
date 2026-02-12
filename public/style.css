@@ -948,6 +948,22 @@ button:disabled {
     background: #1d4ed8;
 }
 
+.admin-forum-export-btn {
+    background: #2563eb;
+    border: none;
+    color: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-weight: bold;
+    margin-left: auto;
+}
+
+.admin-forum-export-btn:hover {
+    background: #1d4ed8;
+}
+
 .admin-forum-clear-all-btn {
     background: #dc2626;
     border: none;
@@ -957,7 +973,7 @@ button:disabled {
     padding: 0.35rem 0.75rem;
     border-radius: 6px;
     font-weight: bold;
-    margin-left: auto;
+    margin-left: 0.5rem;
 }
 
 .admin-forum-clear-all-btn:hover {

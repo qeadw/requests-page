@@ -1089,6 +1089,7 @@ function createAdminForumUI() {
         <div class="admin-forum-header">
             <h2>Admin Forum</h2>
             <span class="admin-badge">Admin Only</span>
+            <button class="admin-forum-export-btn" onclick="window.exportAdminPosts()">Export</button>
             <button class="admin-forum-clear-all-btn" onclick="window.clearAllAdminPosts()">Clear All</button>
         </div>
         <form class="admin-forum-form" id="admin-forum-form">
@@ -1286,6 +1287,30 @@ async function clearAllAdminPosts() {
     }
 }
 
+function exportAdminPosts() {
+    if (!isAdmin()) return;
+    if (adminForumPosts.length === 0) {
+        alert('No posts to export!');
+        return;
+    }
+
+    // Format: content on top, title at bottom, newline between posts
+    const content = adminForumPosts.map(post => {
+        return `${post.content}\n- ${post.title}`;
+    }).join('\n\n');
+
+    // Create and download file
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'admin-forum-export.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 async function editAdminPost(postId) {
     if (!isAdmin()) return;
 
@@ -1338,6 +1363,7 @@ window.addAdminReply = addAdminReply;
 window.deleteAdminPost = deleteAdminPost;
 window.deleteAdminReply = deleteAdminReply;
 window.clearAllAdminPosts = clearAllAdminPosts;
+window.exportAdminPosts = exportAdminPosts;
 window.editAdminPost = editAdminPost;
 
 // ==================== Admin User Management ====================
